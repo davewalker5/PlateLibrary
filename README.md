@@ -162,7 +162,7 @@ yoyo apply -b
 ### Streamlit (data entry / maintenance)
 
 ```bash
-streamlit run scripts/maintain_plates.py
+streamlit run src/maintain_plates.py
 ```
 
 Provides:
