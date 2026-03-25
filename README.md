@@ -1,3 +1,9 @@
+[![GitHub issues](https://img.shields.io/github/issues/davewalker5/PlateLibrary)](https://github.com/davewalker5/PlateLibrary/issues)
+[![Releases](https://img.shields.io/github/v/release/davewalker5/PlateLibrary.svg?include_prereleases)](https://github.com/davewalker5/PlateLibrary/releases)
+[![License: MIT](https://img.shields.io/badge/License-mit-blue.svg)](https://github.com/davewalker5/PlateLibrary/blob/main/LICENSE)
+[![Language](https://img.shields.io/badge/language-python-blue.svg)](https://www.python.org)
+[![GitHub code size in bytes](https://img.shields.io/github/languages/code-size/davewalker5/PlateLibrary)](https://github.com/davewalker5/PlateLibrary/)
+
 # Plate Library
 
 A simple, SQLite-backed plate library for microscopy work.
@@ -130,7 +136,7 @@ The schema itself is stable; the seed data is expected to be customised.
 
 ```bash
 ./scripts/make_venv.sh
-source .venv/bin/activate
+source ./venv/bin/activate
 ```
 
 ⸻
@@ -143,10 +149,10 @@ pip install -r requirements.txt
 
 ⸻
 
-3. Create the database by running migrations using yoyo:
+3. Create the database by running migrations using yoyo, running the following command from the root of the working copy of the repo:
 
 ```bash
-yoyo apply –database sqlite:///data/plate_library.db migrations
+yoyo apply -b
 ```
 
 ⸻
@@ -193,7 +199,7 @@ Use this to:
 ### Export data
 
 ```bash
-python scripts/export_plate_library.py data/plate_library.db output/plates.csv
+python src/export_plate_library.py data/plate_library.db output/plates.csv
 ```
 
 Runs the export query and produces CSV output.
@@ -203,7 +209,7 @@ Runs the export query and produces CSV output.
 ### Import data
 
 ```bash
-python scripts/import_plate_library.py input.xlsx data/plate_library.db
+python src/import_plate_library.py input.xlsx data/plate_library.db
 ```
 
 Used for initial seeding or bulk updates.
