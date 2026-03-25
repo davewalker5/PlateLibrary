@@ -10,10 +10,10 @@ A simple, SQLite-backed plate library for microscopy work.
 
 This project is deliberately minimal, local-first, and practical. It is not a polished application or a framework — it is a small set of tools that together provide a clean way to:
 
-- record plates and investigations
-- maintain structured data without spreadsheets
-- explore and query your work
-- export data into a publishing pipeline
+- Record plates and investigations
+- Maintain structured data without spreadsheets
+- Explore and query your work
+- Export data into a publishing pipeline
 
 It just works.
 
