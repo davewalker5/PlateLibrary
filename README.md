@@ -76,11 +76,34 @@ Each layer has a single responsibility.
 
 ## Schema Overview
 
-The schema is defined in the initial migration:
+![Plate Library Database Diagram](https://github.com/davewalker5/PlateLibrary/blob/main/diagrams/database-schema.png)
 
-migrations/0001_initial_schema.py
+#### PLATE
+A **plate** is the fundamental unit of record. It represents a single observation or preparation (e.g. a slide, section, or specimen view), along with its associated metadata (date, specimen, equipment, notes, etc.).
 
-At its core is the PLATE table, supported by a small number of relational tables.
+#### INVESTIGATION
+An **investigation** represents a defined piece of work — typically a session or short sequence of related observations. Plates are grouped under investigations to provide context and narrative.
+
+#### SERIES
+A **series** is a thematic grouping of investigations. For example, a series might cover a particular type of structure (e.g. leaf epidermis, pollen, stem anatomy) or a class of specimens.
+
+#### SCHEME
+A **scheme** is the highest-level organisational structure. It represents an overall programme of work (for example, an annual or seasonal plan), within which multiple series are defined.
+
+#### SPECIES
+Represents the biological classification of the specimen being observed. This may be populated to varying levels of precision depending on identification confidence.
+
+#### OBJECTIVE
+Represents the microscope objective used for the observation, including magnification and the associated instrument.
+
+#### CAMERA
+Represents the imaging setup used (if any), including effective magnification ranges where applicable.
+
+#### STAIN
+Represents any staining technique applied to the specimen. This is optional and reflects preparation method.
+
+#### LOCATION
+Represents where the specimen was collected or observed. This can include descriptive names and optional grid references.
 
 ⸻
 
@@ -98,73 +121,6 @@ They reflect a specific set of instruments, locations, and investigative schemes
 - Investigative structure
 
 The schema itself is stable; the seed data is expected to be customised.
-
-⸻
-
-## Database Schema
-
-![Plate Library Database Diagram](https://github.com/davewalker5/PlateLibrary/blob/main/diagrams/database-schema.png)
-
-### PLATE
-
-The central record.
-
-Fields include:
-
-- Date
-- Specimen
-- Plate
-- Reference
-- Notebook_Reference
-- Notes
-
-Foreign keys:
-
-- Species_Id → SPECIES
-- Objective_Id → OBJECTIVE
-- Camera_Id → CAMERA
-- Stain_Id → STAIN
-- Location_Id → LOCATION
-- Investigation_Id → INVESTIGATION
-
-⸻
-
-### INVESTIGATION
-
-Represents a structured piece of work.
-
-- Reference
-- Title
-- Series_Id
-
-⸻
-
-### SERIES and SCHEME
-
-Define the programme of work:
-
-- SCHEME → top-level structure (e.g. annual plan)
-- SERIES → thematic grouping
-
-⸻
-
-### Lookup Tables
-
-These change infrequently:
-
-- SPECIES
-- OBJECTIVE (linked to MICROSCOPE)
-- CAMERA
-- STAIN
-- LOCATION
-
-⸻
-
-### Relationships
-
-The schema forms a natural hierarchy:
-
-Scheme → Series → Investigation → Plate
 
 ⸻
 
