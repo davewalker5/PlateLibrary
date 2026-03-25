@@ -246,3 +246,21 @@ If you wish to use it with your own data, you will likely need to adapt it to ma
 - The UI is intentionally simple — it is a tool, not a product
 - The schema is the important part
 - Everything is designed to be easy to modify
+
+⸻
+
+# Authors
+
+- **Dave Walker** - _Initial work_
+
+⸻
+
+# Feedback
+
+To file issues or suggestions, please use the [Issues](https://github.com/davewalker5/NatureRecorderPy/issues) page for this project on GitHub.
+
+⸻
+
+# License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details
