@@ -220,15 +220,57 @@ Used for initial seeding or bulk updates.
 
 The import script is intended as a one-off utility to bootstrap the database from an existing spreadsheet.
 
-It is designed specifically around a spreadsheet structure matching the provided index (see Index.xlsx), including column naming and data conventions.
-
 It is not a general-purpose importer and makes a number of assumptions about:
 
 - Date formats
 - Species naming
 - Reference structure
 
-If you wish to use it with your own data, you will likely need to adapt it to match your spreadsheet format.
+It is designed specifically around a spreadsheet with the following columns:
+
+| Column Name                   | Required | Type      | Description                                                                                                  |
+| ----------------------------- | -------- | --------- | ------------------------------------------------------------------------------------------------------------ |
+| Date                          | Yes      | Input     | The date the observation or plate was recorded, typically in DD/MM/YYYY format.                              |
+| Series                        | Yes      | Lookup    | The series identifier used to resolve the associated scheme and series structure.                            |
+| Scientific Name               | No       | Reference | The scientific (Latin) name of the specimen (not used directly in import logic but retained for reference).  |
+| Common Name                   | Yes*     | Lookup    | The common name used to look up the corresponding species record. Required if Species_Id is to be populated. |
+| Specimen                      | Yes      | Input     | A short description of the specimen or material observed.                                                    |
+| Plate                         | Yes      | Input     | The plate identifier, corresponding to a physical slide or preparation.                                      |
+| Reference                     | Yes      | Input     | A unique or semi-structured reference for the plate.                                                         |
+| Location                      | No       | Lookup    | The location where the specimen was collected or observed.                                                   |
+| Investigation                 | Yes      | Lookup    | The investigation reference used to link the plate to a specific investigation record.                       |
+| Preparation                   | No       | Input     | Details of specimen preparation (e.g. sectioning, mounting).                                                 |
+| Microscope                    | No       | Lookup    | The microscope used for the observation.                                                                     |
+| Objective                     | No       | Lookup    | The specific objective lens used.                                                                            |
+| Objective Magnification       | No       | Derived   | Nominal magnification of the objective; typically implied by the objective lookup.                           |
+| Camera                        | No       | Lookup    | The camera or imaging device used, if applicable.                                                            |
+| Lower Effective Magnification | No       | Input     | Lower bound of effective magnification when imaging.                                                         |
+| Upper Effective Magnification | No       | Input     | Upper bound of effective magnification when imaging.                                                         |
+| Software                      | No       | Input     | Software used for image capture or processing.                                                               |
+| Notebook Reference            | No       | Input     | Reference to the corresponding notebook entry.                                                               |
+| Notes                         | No       | Input     | Free-text notes describing the observation.                                                                  |
+| Verified                      | No       | Input     | Indicates whether the record has been reviewed or confirmed (e.g. TRUE/FALSE).                               |
+
+#### Column Types
+
+| Type      | Meaning                                                                                                    |
+| --------- | ---------------------------------------------------------------------------------------------------------- |
+| Input     | Stored directly in the PLATE table                                                                         |
+| Lookup    | Used to resolve a foreign key (e.g. Species, Investigation, Objective). Values must match existing records |
+| Reference | Informational only — not used directly in import logic but retained for context                            |
+| Derived   | Implied by another field or lookup and not strictly required                                               |
+
+#### Notes
+
+- Fields marked Yes* are conditionally required depending on whether you want that relationship populated.
+- Lookup fields must match existing seed data (or your customised equivalents).
+- The import script is intentionally strict in places to avoid introducing inconsistent data.
+
+#### Example Row
+
+| Date     | Series                         | Scientific Name | Common Name     | Specimen                               | Plate         | Reference | Location | Investigation | Preparation | Microscope        | Objective | Objective Magnification | Camera     | Lower Effective Magnification | Upper Effective Magnification | Software             | Notebook Reference | Notes | Verified |
+| -------- | ------------------------------ | --------------- | --------------- | -------------------------------------- | ------------- | --------- | -------- | ------------- | ----------- | ----------------- | --------- | ----------------------- | ---------- | ----------------------------- | ----------------------------- | -------------------- | ------------------ | ----- | -------- |
+| 23/03/26 | SI II – Support and Conduction | Galium aparine  | Common cleavers | Galium aparine stem, T.S., focus merge | SI-II-018.png | SI-II-018 |          | IN-2026-001   | Unstained   | Ernst Leitz, 1912 | No. 3     | 10                      | Swift EC5R | 26                            | 39                            | Swift Imaging 3, OBS | Vol. IV, p. 10     |       | Yes      |
 
 ⸻
 
