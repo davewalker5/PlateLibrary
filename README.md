@@ -257,7 +257,7 @@ If you wish to use it with your own data, you will likely need to adapt it to ma
 
 # Feedback
 
-To file issues or suggestions, please use the [Issues](https://github.com/davewalker5/NatureRecorderPy/issues) page for this project on GitHub.
+To file issues or suggestions, please use the [Issues](https://github.com/davewalker5/PlateLibrary/issues) page for this project on GitHub.
 
 ⸻
 
