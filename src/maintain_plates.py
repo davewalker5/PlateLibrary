@@ -26,12 +26,13 @@ from datetime import date, datetime
 from pathlib import Path
 from typing import Any
 import argparse
+import re
 import streamlit as st
 
 
 PROGRAM_NAME = "Microscopy Plate Library Maintenance UI"
 PROGRAM_VERSION = "1.0.0"
-PROGRAM_DESCRIPTION = "Maintainance UI for the microscopy plate library"
+PROGRAM_DESCRIPTION = "Maintenance UI for the microscopy plate library"
 
 # Default location for the local Datasette instance and database name
 DEFAULT_DATASETTE_URL = "http://127.0.0.1:8001"
@@ -185,7 +186,7 @@ def fetch_series(conn: sqlite3.Connection) -> list[dict[str, Any]]:
         """
         SELECT
             se.Id,
-            sc.Code || ' ' || se.Name AS Label
+            sc.Code || '-' || se.Code || ' ' || se.Name AS Label
         FROM SERIES se
         INNER JOIN SCHEME sc ON sc.Id = se.Scheme_Id
         ORDER BY sc.Code, se.Name
@@ -200,7 +201,7 @@ def fetch_investigations(conn: sqlite3.Connection) -> list[dict[str, Any]]:
         """
         SELECT
             i.Id,
-            sc.Code || ' ' || se.Name || ' | ' || i.Reference || ' | ' || i.Title AS Label
+            sc.Code || '-' || se.Code || ' ' || se.Name || ' | ' || i.Reference || ' | ' || i.Title AS Label
         FROM INVESTIGATION i
         INNER JOIN SERIES se ON se.Id = i.Series_Id
         INNER JOIN SCHEME sc ON sc.Id = se.Scheme_Id
@@ -219,7 +220,7 @@ def fetch_plate_list(conn: sqlite3.Connection) -> list[dict[str, Any]]:
         """
         SELECT          p.Id,
                         p.Date,
-                        sc.Code || ' ' || se.Name AS "Series",
+                        sc.Code || '-' || se.Code || ' ' || se.Name AS "Series",
                         sp.Scientific_Name AS "Scientific Name",
                         sp.Common_Name AS "Common Name",
                         p.Specimen,
@@ -291,7 +292,7 @@ def fetch_investigation_list(conn: sqlite3.Connection) -> list[dict[str, Any]]:
             i.Id,
             i.Reference,
             i.Title,
-            sc.Code || ' ' || se.Name AS Series,
+            sc.Code || '-' || se.Code || ' ' || se.Name AS Series,
             (
                 SELECT COUNT(*)
                 FROM PLATE p
@@ -429,6 +430,112 @@ def form_key_base(entity: str, mode: str, record_id: int | None = None) -> str:
     """
     suffix = "new" if record_id is None else str(record_id)
     return f"{entity}_{mode}_{suffix}"
+
+
+# -----------------------------------------------------------------------------
+# Plate number suggestion helpers
+# -----------------------------------------------------------------------------
+def extract_plate_sequence(value: str | None, prefix: str) -> int | None:
+    """Extract the main sequence number immediately after PREFIX.
+
+    Supported formats:
+        PREFIX + XXX
+        PREFIX + XXX + '-' + NNN
+
+    Examples:
+        prefix = "SI-II-"
+        "SI-II-001" -> 1
+
+        prefix = "PS-LAK-"
+        "PS-LAK-003-014" -> 3
+
+    Returns None if the value does not match either supported pattern exactly.
+    """
+    if value is None:
+        return None
+
+    text = str(value).strip()
+    pattern = rf"^{re.escape(prefix)}(\d+)(?:-(\d+))?$"
+    match = re.match(pattern, text)
+    if not match:
+        return None
+
+    return int(match.group(1))
+
+
+def format_plate_code(prefix: str, sequence_number: int, plate_format: str) -> str:
+    """Format a suggested plate/reference code for the given series format."""
+    main_part = f"{sequence_number:03d}"
+
+    if plate_format == "subsequence":
+        return f"{prefix}{main_part}-001"
+
+    return f"{prefix}{main_part}"
+
+
+def suggest_next_plate_for_investigation(
+    conn: sqlite3.Connection, investigation_id: int
+) -> str | None:
+    """Suggest the next plate/reference code for the selected investigation.
+
+    Numbering is shared across the whole series, not just one investigation.
+
+    Supported formats:
+      - simple:      SCHEME-SERIES-XXX
+      - subsequence: SCHEME-SERIES-XXX-NNN
+
+    For subsequence series, XXX is incremented and NNN resets to 001.
+    """
+    row = conn.execute(
+        """
+        SELECT
+            i.Series_Id AS Series_Id,
+            sc.Code AS Scheme_Code,
+            se.Code AS Series_Code,
+            COALESCE(se.Plate_Format, 'simple') AS Plate_Format
+        FROM INVESTIGATION i
+        INNER JOIN SERIES se ON se.Id = i.Series_Id
+        INNER JOIN SCHEME sc ON sc.Id = se.Scheme_Id
+        WHERE i.Id = ?
+        """,
+        (investigation_id,),
+    ).fetchone()
+
+    if row is None:
+        return None
+
+    scheme_code = (row["Scheme_Code"] or "").strip()
+    series_code = (row["Series_Code"] or "").strip()
+    series_id = row["Series_Id"]
+    plate_format = (row["Plate_Format"] or "simple").strip().lower()
+
+    if not scheme_code or not series_code or series_id is None:
+        return None
+
+    prefix = f"{scheme_code}-{series_code}-"
+
+    existing_rows = conn.execute(
+        """
+        SELECT
+            p.Plate,
+            p.Reference
+        FROM PLATE p
+        INNER JOIN INVESTIGATION i ON i.Id = p.Investigation_Id
+        WHERE i.Series_Id = ?
+        """,
+        (series_id,),
+    ).fetchall()
+
+    max_sequence = 0
+
+    for existing_row in existing_rows:
+        for candidate in (existing_row["Plate"], existing_row["Reference"]):
+            number = extract_plate_sequence(candidate, prefix)
+            if number is not None and number > max_sequence:
+                max_sequence = number
+
+    next_sequence = max_sequence + 1
+    return format_plate_code(prefix, next_sequence, plate_format)
 
 
 # -----------------------------------------------------------------------------
@@ -819,6 +926,40 @@ def datasette_location_url(base_url: str, db_file: Path, location_id: int) -> st
 # -----------------------------------------------------------------------------
 # Streamlit form renderers
 # -----------------------------------------------------------------------------
+def apply_plate_defaults_from_investigation(
+    key_base: str,
+    investigation_id: int | None,
+    suggested_plate: str | None,
+) -> None:
+    """Populate Plate and Reference defaults when the investigation changes.
+
+    This only auto-fills when the values are blank or still match the previous
+    auto-generated suggestion, so manual edits are preserved.
+    """
+    plate_key = f"{key_base}_plate"
+    reference_key = f"{key_base}_reference"
+    tracking_key = f"{key_base}_last_suggested_plate"
+    investigation_key = f"{key_base}_last_investigation_id"
+
+    previous_suggestion = st.session_state.get(tracking_key)
+    previous_investigation_id = st.session_state.get(investigation_key)
+
+    investigation_changed = previous_investigation_id != investigation_id
+
+    if investigation_changed and suggested_plate:
+        current_plate = st.session_state.get(plate_key, "")
+        current_reference = st.session_state.get(reference_key, "")
+
+        if not current_plate or current_plate == previous_suggestion:
+            st.session_state[plate_key] = suggested_plate
+
+        if not current_reference or current_reference == previous_suggestion:
+            st.session_state[reference_key] = suggested_plate
+
+    st.session_state[investigation_key] = investigation_id
+    st.session_state[tracking_key] = suggested_plate or ""
+
+
 def render_plate_form(
     conn: sqlite3.Connection,
     mode: str,
@@ -847,9 +988,18 @@ def render_plate_form(
     default_date = parse_db_date(plate.get("Date")) if mode == "edit" else None
 
     if mode == "add":
-        objective_form_options = make_nullable_options(objective_options, placeholder="— Select objective —")
-        camera_form_options = make_nullable_options(camera_options, placeholder="— Select camera —")
-        investigation_form_options = make_nullable_options(investigation_options, placeholder="— Select investigation —")
+        objective_form_options = make_nullable_options(
+            objective_options,
+            placeholder="— Select objective —",
+        )
+        camera_form_options = make_nullable_options(
+            camera_options,
+            placeholder="— Select camera —",
+        )
+        investigation_form_options = make_nullable_options(
+            investigation_options,
+            placeholder="— Select investigation —",
+        )
         default_objective_id = None
         default_camera_id = None
         default_investigation_id = None
@@ -861,14 +1011,64 @@ def render_plate_form(
         default_camera_id = plate.get("Camera_Id")
         default_investigation_id = plate.get("Investigation_Id")
 
-    with st.form(f"{mode}_plate_form_{plate_id if plate_id is not None else 'new'}", clear_on_submit=(mode == "add")):
+    # In add mode, place Investigation outside the form so that changing it
+    # triggers a rerun and can refresh the suggested Plate / Reference values.
+    if mode == "add":
+        investigation = st.selectbox(
+            "Investigation *",
+            options=investigation_form_options,
+            index=option_index(investigation_form_options, default_investigation_id),
+            format_func=lambda x: x["Label"],
+            key=f"{key_base}_investigation",
+        )
+
+        selected_investigation_id = selected_fk(investigation)
+        suggested_plate = None
+        if selected_investigation_id is not None:
+            suggested_plate = suggest_next_plate_for_investigation(
+                conn,
+                selected_investigation_id,
+            )
+
+        apply_plate_defaults_from_investigation(
+            key_base=key_base,
+            investigation_id=selected_investigation_id,
+            suggested_plate=suggested_plate,
+        )
+
+        if suggested_plate:
+            st.caption(f"Suggested next plate/reference: {suggested_plate}")
+    else:
+        selected_investigation_id = plate.get("Investigation_Id")
+        suggested_plate = None
+
+    with st.form(
+        f"{mode}_plate_form_{plate_id if plate_id is not None else 'new'}",
+        clear_on_submit=(mode == "add"),
+    ):
         col1, col2 = st.columns(2)
 
         with col1:
-            plate_date = st.date_input("Date", value=default_date, key=f"{key_base}_date")
-            specimen = st.text_input("Specimen", value=plate.get("Specimen") or "", key=f"{key_base}_specimen")
-            plate_code = st.text_input("Plate", value=plate.get("Plate") or "", key=f"{key_base}_plate")
-            reference = st.text_input("Reference", value=plate.get("Reference") or "", key=f"{key_base}_reference")
+            plate_date = st.date_input(
+                "Date",
+                value=default_date,
+                key=f"{key_base}_date",
+            )
+            specimen = st.text_input(
+                "Specimen",
+                value=plate.get("Specimen") or "",
+                key=f"{key_base}_specimen",
+            )
+            plate_code = st.text_input(
+                "Plate",
+                value=plate.get("Plate") or "",
+                key=f"{key_base}_plate",
+            )
+            reference = st.text_input(
+                "Reference",
+                value=plate.get("Reference") or "",
+                key=f"{key_base}_reference",
+            )
 
         with col2:
             notebook_reference = st.text_input(
@@ -914,15 +1114,21 @@ def render_plate_form(
             key=f"{key_base}_location",
         )
 
-        investigation = st.selectbox(
-            "Investigation *",
-            options=investigation_form_options,
-            index=option_index(investigation_form_options, default_investigation_id),
-            format_func=lambda x: x["Label"],
-            key=f"{key_base}_investigation",
-        )
+        if mode == "edit":
+            investigation = st.selectbox(
+                "Investigation *",
+                options=investigation_form_options,
+                index=option_index(investigation_form_options, default_investigation_id),
+                format_func=lambda x: x["Label"],
+                key=f"{key_base}_investigation",
+            )
 
-        notes = st.text_area("Notes", value=plate.get("Notes") or "", height=150, key=f"{key_base}_notes")
+        notes = st.text_area(
+            "Notes",
+            value=plate.get("Notes") or "",
+            height=150,
+            key=f"{key_base}_notes",
+        )
 
         submitted = st.form_submit_button(
             "Add plate" if mode == "add" else "Save changes",
