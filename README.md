@@ -2,6 +2,7 @@
 [![Releases](https://img.shields.io/github/v/release/davewalker5/PlateLibrary.svg?include_prereleases)](https://github.com/davewalker5/PlateLibrary/releases)
 [![License: MIT](https://img.shields.io/badge/License-mit-blue.svg)](https://github.com/davewalker5/PlateLibrary/blob/main/LICENSE)
 [![Language](https://img.shields.io/badge/language-python-blue.svg)](https://www.python.org)
+[![Language](https://img.shields.io/badge/database-SQLite-blue.svg)](https://github.com/davewalker5/ADS-B-BaseStationReader/)
 [![GitHub code size in bytes](https://img.shields.io/github/languages/code-size/davewalker5/PlateLibrary)](https://github.com/davewalker5/PlateLibrary/)
 
 # Plate Library
