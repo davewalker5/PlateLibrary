@@ -19,8 +19,6 @@ A typical workflow with the tool looks like this:
 
 An import script is also provided to import data from a spreadsheet.
 
-⸻
-
 ## Database Schema
 
 ![Plate Library Database Diagram](https://github.com/davewalker5/PlateLibrary/blob/main/diagrams/database-schema.png)
@@ -60,8 +58,6 @@ yoyo apply -b
 ```
 
 This will create a SQLite database called *plate_library.db* in the data folder.
-
-⸻
 
 ## Running the Tools
 
@@ -111,8 +107,6 @@ http://127.0.0.1:8001
 ```
 
 Use this to browse, filter and query the data.
-
-⸻
 
 ## Data Import and Export
 
@@ -190,19 +184,13 @@ It is designed around an input spreadsheet (XLSX) with the following columns:
 | -------- | ------------------------------ | --------------- | --------------- | -------------------------------------- | ------------- | --------- | -------- | ------------- | ----------- | ----------------- | --------- | ----------------------- | ---------- | ----------------------------- | ----------------------------- | -------------------- | ------------------ | ----- | -------- |
 | 23/03/26 | SI II – Support and Conduction | Galium aparine  | Common cleavers | Galium aparine stem, T.S., focus merge | SI-II-018.png | SI-II-018 |          | IN-2026-001   | Unstained   | Ernst Leitz, 1912 | No. 3     | 10                      | Swift EC5R | 26                            | 39                            | Swift Imaging 3, OBS | Vol. IV, p. 10     |       | Yes      |
 
-⸻
-
 # Authors
 
 - **Dave Walker** - _Initial work_
 
-⸻
-
 # Feedback
 
 To file issues or suggestions, please use the [Issues](https://github.com/davewalker5/PlateLibrary/issues) page for this project on GitHub.
-
-⸻
 
 # License
 
