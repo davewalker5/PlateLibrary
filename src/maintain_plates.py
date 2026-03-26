@@ -26,15 +26,27 @@ from typing import Any
 
 import streamlit as st
 
-# Default locations for the SQLite database and the local Datasette instance.
-PROJECT_DIR = os.path.dirname(os.path.dirname(__file__))
-DEFAULT_DB_PATH = Path(PROJECT_DIR) / "data" / "plate_library.db"
+# Default location for the local Datasette instance and database name
 DEFAULT_DATASETTE_URL = "http://127.0.0.1:8001"
-
+DB_NAME = "plate_library.db"
 
 # -----------------------------------------------------------------------------
 # SQLite helpers
 # -----------------------------------------------------------------------------
+def database_path():
+    """Return the default location for the database
+    
+    If the microscopy plate library environment variable is set, assume the database is in that
+    folder. Otherwise, assume a copy of the database in the data folder of the project.
+    """
+    db_folder = os.getenv("MICROSCOPY_PLATE_LIBRARY")
+    if not db_folder:
+        project_folder = os.path.dirname(os.path.dirname(__file__))
+        db_folder = Path(project_folder) / "data"
+
+    return (Path(db_folder) / DB_NAME).absolute()
+
+
 def get_connection(db_path: str) -> sqlite3.Connection:
     """Open a SQLite connection configured for dictionary-style row access."""
     conn = sqlite3.connect(db_path)
@@ -766,7 +778,8 @@ def main() -> None:
 
     with st.sidebar:
         st.header("Database")
-        db_path = st.text_input("SQLite DB path", value=DEFAULT_DB_PATH.absolute())
+        default_db_path = database_path()
+        db_path = st.text_input("SQLite DB path", value=default_db_path)
 
         st.header("Datasette")
         datasette_url = st.text_input("Datasette base URL", value=DEFAULT_DATASETTE_URL)
