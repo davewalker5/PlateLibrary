@@ -405,6 +405,135 @@ def store_last_used_investigation_values(payload: dict[str, Any]) -> None:
 
 
 # -----------------------------------------------------------------------------
+# Generic UI helpers used by the repeated maintenance screens
+# -----------------------------------------------------------------------------
+def filter_rows(rows: list[dict[str, Any]], search_text: str) -> list[dict[str, Any]]:
+    """Return rows filtered by a simple case-insensitive free-text search.
+
+    This deliberately searches across the string representation of each value so
+    that the browse tabs stay lightweight and easy to understand. For a small
+    local maintenance UI, the simplicity is more valuable than building a more
+    elaborate per-column filter system.
+    """
+    if not search_text.strip():
+        return rows
+
+    needle = search_text.strip().lower()
+    return [
+        row
+        for row in rows
+        if any(needle in str(value).lower() for value in row.values())
+    ]
+
+
+def build_edit_options(
+    rows: list[dict[str, Any]],
+    label_builder,
+) -> list[dict[str, Any]]:
+    """Convert browse rows into select-box options for the edit tab.
+
+    Each entity uses a slightly different human-readable label, so the caller
+    supplies a small label-building function while the common wrapping logic
+    lives here.
+    """
+    return [{"Id": row["Id"], "Label": label_builder(row)} for row in rows]
+
+
+def render_browse_table(
+    rows: list[dict[str, Any]],
+    *,
+    entity_name: str,
+    search_key: str,
+    search_label: str,
+) -> None:
+    """Render a simple searchable table for one entity type."""
+    search = st.text_input(search_label, key=search_key)
+
+    if not rows:
+        st.info(f"No {entity_name} found.")
+        return
+
+    filtered_rows = filter_rows(rows, search)
+    st.dataframe(
+        filtered_rows,
+        use_container_width=True,
+        hide_index=True,
+    )
+    st.caption(f"{len(filtered_rows)} {entity_name}(s) shown")
+
+
+def render_maintenance_section(
+    *,
+    conn: sqlite3.Connection,
+    db_file: Path,
+    datasette_url: str,
+    entity_name: str,
+    add_title: str,
+    edit_title: str,
+    browse_title: str,
+    fetch_list,
+    fetch_record,
+    render_form,
+    edit_select_label: str,
+    edit_select_key: str,
+    search_key: str,
+    search_label: str,
+    option_label_builder,
+) -> None:
+    """Render the repeated add/edit/browse pattern for one entity type.
+
+    Plates, investigations and locations all share the same broad page layout:
+    an add tab, an edit tab with a select box, and a browse tab with a search
+    box and dataframe. Centralising that pattern keeps the main function much
+    shorter and makes future GitHub maintenance easier.
+    """
+    add_tab, edit_tab, browse_tab = st.tabs([add_title, edit_title, browse_title])
+
+    with add_tab:
+        st.subheader(add_title)
+        render_form(
+            conn,
+            mode="add",
+            db_file=db_file,
+            datasette_url=datasette_url,
+        )
+
+    with edit_tab:
+        st.subheader(edit_title)
+        rows = fetch_list(conn)
+
+        if not rows:
+            st.info(f"No {entity_name} yet.")
+        else:
+            edit_options = build_edit_options(rows, option_label_builder)
+            selected = st.selectbox(
+                edit_select_label,
+                options=edit_options,
+                format_func=lambda x: x["Label"],
+                key=edit_select_key,
+            )
+            record = fetch_record(conn, int(selected["Id"]))
+            if record is not None:
+                render_form(
+                    conn,
+                    mode="edit",
+                    db_file=db_file,
+                    datasette_url=datasette_url,
+                    **{entity_name: record},
+                )
+
+    with browse_tab:
+        st.subheader(f"Current {entity_name}s")
+        rows = fetch_list(conn)
+        render_browse_table(
+            rows,
+            entity_name=entity_name,
+            search_key=search_key,
+            search_label=search_label,
+        )
+
+
+# -----------------------------------------------------------------------------
 # INSERT / UPDATE / DELETE helpers
 # -----------------------------------------------------------------------------
 def insert_plate(conn: sqlite3.Connection, values: dict[str, Any]) -> None:
@@ -1031,219 +1160,67 @@ def main() -> None:
             ])
 
             with top_plate_tab:
-                add_tab, edit_tab, browse_tab = st.tabs(
-                    ["Add plate", "Edit plate", "Browse"]
+                render_maintenance_section(
+                    conn=conn,
+                    db_file=db_file,
+                    datasette_url=datasette_url,
+                    entity_name="plate",
+                    add_title="Add plate",
+                    edit_title="Edit plate",
+                    browse_title="Browse",
+                    fetch_list=fetch_plate_list,
+                    fetch_record=fetch_plate,
+                    render_form=render_plate_form,
+                    edit_select_label="Choose a plate to edit",
+                    edit_select_key="plate_edit_select",
+                    search_key="plate_search",
+                    search_label="Search plates",
+                    option_label_builder=lambda row: (
+                        f'{row["Date"]} | {row["Plate"]} | {row["Reference"]} | {row["Specimen"]}'
+                    ),
                 )
-
-                with add_tab:
-                    st.subheader("Add plate")
-                    render_plate_form(
-                        conn,
-                        mode="add",
-                        db_file=db_file,
-                        datasette_url=datasette_url,
-                    )
-
-                with edit_tab:
-                    st.subheader("Edit plate")
-                    plate_rows = fetch_plate_list(conn)
-
-                    if not plate_rows:
-                        st.info("No plates yet.")
-                    else:
-                        edit_options = [
-                            {
-                                "Id": row["Id"],
-                                "Label": f'{row["Date"]} | {row["Plate"]} | {row["Reference"]} | {row["Specimen"]}',
-                            }
-                            for row in plate_rows
-                        ]
-
-                        selected = st.selectbox(
-                            "Choose a plate to edit",
-                            options=edit_options,
-                            format_func=lambda x: x["Label"],
-                            key="plate_edit_select",
-                        )
-                        plate = fetch_plate(conn, int(selected["Id"]))
-                        if plate is not None:
-                            render_plate_form(
-                                conn,
-                                mode="edit",
-                                db_file=db_file,
-                                datasette_url=datasette_url,
-                                plate=plate,
-                            )
-
-                with browse_tab:
-                    st.subheader("Current plates")
-                    plate_rows = fetch_plate_list(conn)
-                    search = st.text_input("Search plates", key="plate_search")
-
-                    if plate_rows:
-                        if search.strip():
-                            search_text = search.strip().lower()
-                            filtered_rows = [
-                                row
-                                for row in plate_rows
-                                if any(search_text in str(value).lower() for value in row.values())
-                            ]
-                        else:
-                            filtered_rows = plate_rows
-
-                        st.dataframe(
-                            filtered_rows,
-                            use_container_width=True,
-                            hide_index=True,
-                        )
-                        st.caption(f"{len(filtered_rows)} plate(s) shown")
-                    else:
-                        st.info("No plates found.")
 
             with top_investigation_tab:
-                add_tab, edit_tab, browse_tab = st.tabs(
-                    ["Add investigation", "Edit investigation", "Browse"]
+                render_maintenance_section(
+                    conn=conn,
+                    db_file=db_file,
+                    datasette_url=datasette_url,
+                    entity_name="investigation",
+                    add_title="Add investigation",
+                    edit_title="Edit investigation",
+                    browse_title="Browse",
+                    fetch_list=fetch_investigation_list,
+                    fetch_record=fetch_investigation,
+                    render_form=render_investigation_form,
+                    edit_select_label="Choose an investigation to edit",
+                    edit_select_key="investigation_edit_select",
+                    search_key="investigation_search",
+                    search_label="Search investigations",
+                    option_label_builder=lambda row: (
+                        f'{row["Reference"]} | {row["Title"]} | {row["Series"]}'
+                    ),
                 )
-
-                with add_tab:
-                    st.subheader("Add investigation")
-                    render_investigation_form(
-                        conn,
-                        mode="add",
-                        db_file=db_file,
-                        datasette_url=datasette_url,
-                    )
-
-                with edit_tab:
-                    st.subheader("Edit investigation")
-                    investigation_rows = fetch_investigation_list(conn)
-
-                    if not investigation_rows:
-                        st.info("No investigations yet.")
-                    else:
-                        edit_options = [
-                            {
-                                "Id": row["Id"],
-                                "Label": f'{row["Reference"]} | {row["Title"]} | {row["Series"]}',
-                            }
-                            for row in investigation_rows
-                        ]
-
-                        selected = st.selectbox(
-                            "Choose an investigation to edit",
-                            options=edit_options,
-                            format_func=lambda x: x["Label"],
-                            key="investigation_edit_select",
-                        )
-                        investigation = fetch_investigation(conn, int(selected["Id"]))
-                        if investigation is not None:
-                            render_investigation_form(
-                                conn,
-                                mode="edit",
-                                db_file=db_file,
-                                datasette_url=datasette_url,
-                                investigation=investigation,
-                            )
-
-                with browse_tab:
-                    st.subheader("Current investigations")
-                    investigation_rows = fetch_investigation_list(conn)
-                    search = st.text_input(
-                        "Search investigations",
-                        key="investigation_search",
-                    )
-
-                    if investigation_rows:
-                        if search.strip():
-                            search_text = search.strip().lower()
-                            filtered_rows = [
-                                row
-                                for row in investigation_rows
-                                if any(search_text in str(value).lower() for value in row.values())
-                            ]
-                        else:
-                            filtered_rows = investigation_rows
-
-                        st.dataframe(
-                            filtered_rows,
-                            use_container_width=True,
-                            hide_index=True,
-                        )
-                        st.caption(f"{len(filtered_rows)} investigation(s) shown")
-                    else:
-                        st.info("No investigations found.")
 
             with top_location_tab:
-                add_tab, edit_tab, browse_tab = st.tabs(
-                    ["Add location", "Edit location", "Browse"]
+                render_maintenance_section(
+                    conn=conn,
+                    db_file=db_file,
+                    datasette_url=datasette_url,
+                    entity_name="location",
+                    add_title="Add location",
+                    edit_title="Edit location",
+                    browse_title="Browse",
+                    fetch_list=fetch_location_list,
+                    fetch_record=fetch_location,
+                    render_form=render_location_form,
+                    edit_select_label="Choose a location to edit",
+                    edit_select_key="location_edit_select",
+                    search_key="location_search",
+                    search_label="Search locations",
+                    option_label_builder=lambda row: row["Name"]
+                    if not row["Grid_Reference"]
+                    else f'{row["Name"]} | {row["Grid_Reference"]}',
                 )
-
-                with add_tab:
-                    st.subheader("Add location")
-                    render_location_form(
-                        conn,
-                        mode="add",
-                        db_file=db_file,
-                        datasette_url=datasette_url,
-                    )
-
-                with edit_tab:
-                    st.subheader("Edit location")
-                    location_rows = fetch_location_list(conn)
-
-                    if not location_rows:
-                        st.info("No locations yet.")
-                    else:
-                        edit_options = [
-                            {
-                                "Id": row["Id"],
-                                "Label": row["Name"]
-                                if not row["Grid_Reference"]
-                                else f'{row["Name"]} | {row["Grid_Reference"]}',
-                            }
-                            for row in location_rows
-                        ]
-
-                        selected = st.selectbox(
-                            "Choose a location to edit",
-                            options=edit_options,
-                            format_func=lambda x: x["Label"],
-                            key="location_edit_select",
-                        )
-                        location = fetch_location(conn, int(selected["Id"]))
-                        if location is not None:
-                            render_location_form(
-                                conn,
-                                mode="edit",
-                                db_file=db_file,
-                                datasette_url=datasette_url,
-                                location=location,
-                            )
-
-                with browse_tab:
-                    st.subheader("Current locations")
-                    location_rows = fetch_location_list(conn)
-                    search = st.text_input("Search locations", key="location_search")
-
-                    if location_rows:
-                        if search.strip():
-                            search_text = search.strip().lower()
-                            filtered_rows = [
-                                row
-                                for row in location_rows
-                                if any(search_text in str(value).lower() for value in row.values())
-                            ]
-                        else:
-                            filtered_rows = location_rows
-
-                        st.dataframe(
-                            filtered_rows,
-                            use_container_width=True,
-                            hide_index=True,
-                        )
-                        st.caption(f"{len(filtered_rows)} location(s) shown")
-                    else:
-                        st.info("No locations found.")
 
     except sqlite3.Error as exc:
         st.error(f"SQLite error: {exc}")
