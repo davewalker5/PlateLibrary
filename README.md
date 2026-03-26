@@ -13,8 +13,8 @@ It is is deliberately minimal, local-first, and practical and consists of a smal
 
 A typical workflow with the tool looks like this:
 
-1.	Enter and edit plates via Streamlit
-2.	Explore and validate the data in Datasette
+1.	Enter and edit plates via [Streamlit](https://streamlit.io)
+2.	Explore and validate the data in [Datasette](https://datasette.io)
 3.	Export the data to CSV
 4.	Use the exported data in analysis / reports
 
