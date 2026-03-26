@@ -5,6 +5,7 @@ fast-moving tables in the plate library database:
 
 - PLATE
 - INVESTIGATION
+- LOCATION
 
 The application is intended to sit alongside Datasette:
 
@@ -12,7 +13,8 @@ The application is intended to sit alongside Datasette:
 - Datasette is used for browsing, querying and verifying the data
 
 The rest of the lookup tables are assumed to change only occasionally and can
-be maintained separately when needed.
+be maintained separately when needed. LOCATION is included because it is a
+regular part of specimen and plate entry.
 """
 
 from __future__ import annotations
@@ -75,7 +77,7 @@ def fetch_lookup(conn: sqlite3.Connection, sql: str) -> list[dict[str, Any]]:
 
 
 # -----------------------------------------------------------------------------
-# Lookup queries used by the PLATE and INVESTIGATION forms
+# Lookup queries used by the PLATE, INVESTIGATION and LOCATION forms
 # -----------------------------------------------------------------------------
 def fetch_species(conn: sqlite3.Connection) -> list[dict[str, Any]]:
     """Return species records formatted for a select box."""
@@ -294,6 +296,46 @@ def fetch_investigation(
     return dict(row) if row else None
 
 
+def fetch_location_list(conn: sqlite3.Connection) -> list[dict[str, Any]]:
+    """Return a compact list of locations for browsing and selection."""
+    return fetch_lookup(
+        conn,
+        """
+        SELECT
+            l.Id,
+            l.Name,
+            l.Grid_Reference,
+            l.Latitude,
+            l.Longitude,
+            (
+                SELECT COUNT(*)
+                FROM PLATE p
+                WHERE p.Location_Id = l.Id
+            ) AS Plate_Count
+        FROM LOCATION l
+        ORDER BY l.Name
+        """,
+    )
+
+
+def fetch_location(conn: sqlite3.Connection, location_id: int) -> dict[str, Any] | None:
+    """Fetch a single LOCATION row for editing."""
+    row = conn.execute(
+        """
+        SELECT
+            Id,
+            Name,
+            Grid_Reference,
+            Latitude,
+            Longitude
+        FROM LOCATION
+        WHERE Id = ?
+        """,
+        (location_id,),
+    ).fetchone()
+    return dict(row) if row else None
+
+
 # -----------------------------------------------------------------------------
 # Data conversion helpers
 # -----------------------------------------------------------------------------
@@ -493,6 +535,57 @@ def update_investigation(
     conn.commit()
 
 
+def insert_location(conn: sqlite3.Connection, values: dict[str, Any]) -> None:
+    """Insert a new LOCATION record."""
+    conn.execute(
+        """
+        INSERT INTO LOCATION (
+            Name,
+            Grid_Reference,
+            Latitude,
+            Longitude
+        )
+        VALUES (?, ?, ?, ?)
+        """,
+        (
+            values["Name"],
+            values["Grid_Reference"],
+            values["Latitude"],
+            values["Longitude"],
+        ),
+    )
+    conn.commit()
+
+
+def update_location(conn: sqlite3.Connection, location_id: int, values: dict[str, Any]) -> None:
+    """Update an existing LOCATION record."""
+    conn.execute(
+        """
+        UPDATE LOCATION
+        SET
+            Name = ?,
+            Grid_Reference = ?,
+            Latitude = ?,
+            Longitude = ?
+        WHERE Id = ?
+        """,
+        (
+            values["Name"],
+            values["Grid_Reference"],
+            values["Latitude"],
+            values["Longitude"],
+            location_id,
+        ),
+    )
+    conn.commit()
+
+
+def delete_location(conn: sqlite3.Connection, location_id: int) -> None:
+    """Delete a LOCATION record."""
+    conn.execute("DELETE FROM LOCATION WHERE Id = ?", (location_id,))
+    conn.commit()
+
+
 # -----------------------------------------------------------------------------
 # Datasette links
 # -----------------------------------------------------------------------------
@@ -512,6 +605,12 @@ def datasette_investigation_url(
     """Build the Datasette URL for an INVESTIGATION record."""
     db_name = db_file.stem
     return f"{base_url.rstrip('/')}/{db_name}/INVESTIGATION/{investigation_id}"
+
+
+def datasette_location_url(base_url: str, db_file: Path, location_id: int) -> str:
+    """Build the Datasette URL for a LOCATION record."""
+    db_name = db_file.stem
+    return f"{base_url.rstrip('/')}/{db_name}/LOCATION/{location_id}"
 
 
 # -----------------------------------------------------------------------------
@@ -767,6 +866,124 @@ def render_investigation_form(
         st.error(f"Could not save investigation: {exc}")
 
 
+def render_location_form(
+    conn: sqlite3.Connection,
+    mode: str,
+    db_file: Path,
+    datasette_url: str,
+    location: dict[str, Any] | None = None,
+) -> None:
+    """Render the add/edit form for LOCATION records."""
+    location = location or {}
+
+    # Streamlit text_input is used for latitude and longitude so that empty
+    # values remain genuinely null in SQLite rather than being forced to 0.0.
+    with st.form(f"{mode}_location_form", clear_on_submit=False):
+        name = st.text_input("Name *", value=location.get("Name") or "")
+        grid_reference = st.text_input(
+            "Grid Reference",
+            value=location.get("Grid_Reference") or "",
+        )
+
+        col1, col2 = st.columns(2)
+        with col1:
+            latitude_text = st.text_input(
+                "Latitude",
+                value="" if location.get("Latitude") is None else str(location.get("Latitude")),
+                help="Leave blank if the location does not yet have a coordinate.",
+            )
+        with col2:
+            longitude_text = st.text_input(
+                "Longitude",
+                value="" if location.get("Longitude") is None else str(location.get("Longitude")),
+                help="Leave blank if the location does not yet have a coordinate.",
+            )
+
+        submitted = st.form_submit_button(
+            "Add location" if mode == "add" else "Save changes",
+            type="primary",
+        )
+
+    if mode == "edit" and location.get("Id") is not None:
+        location_id = int(location["Id"])
+        st.markdown(
+            f"[View in Datasette]({datasette_location_url(datasette_url, db_file, location_id)})"
+        )
+
+        confirm_delete = st.checkbox(
+            "Confirm delete of this location",
+            key=f"confirm_delete_location_{location_id}",
+        )
+        if st.button(
+            "Delete location",
+            type="secondary",
+            key=f"delete_location_{location_id}",
+        ):
+            if not confirm_delete:
+                st.error("Tick the confirmation box before deleting.")
+            else:
+                try:
+                    delete_location(conn, location_id)
+                    st.success("Location deleted.")
+                    st.rerun()
+                except sqlite3.IntegrityError as exc:
+                    st.error(f"Could not delete location: {exc}")
+
+    if not submitted:
+        return
+
+    errors: list[str] = []
+    if not name.strip():
+        errors.append("Name is required.")
+
+    # Parse numeric inputs carefully so that users can leave them blank while
+    # still getting a clear validation message for malformed values.
+    latitude: float | None = None
+    longitude: float | None = None
+
+    if latitude_text.strip():
+        try:
+            latitude = float(latitude_text.strip())
+        except ValueError:
+            errors.append("Latitude must be a valid number.")
+
+    if longitude_text.strip():
+        try:
+            longitude = float(longitude_text.strip())
+        except ValueError:
+            errors.append("Longitude must be a valid number.")
+
+    if latitude is not None and not -90 <= latitude <= 90:
+        errors.append("Latitude must be between -90 and 90.")
+
+    if longitude is not None and not -180 <= longitude <= 180:
+        errors.append("Longitude must be between -180 and 180.")
+
+    if errors:
+        for error in errors:
+            st.error(error)
+        return
+
+    payload = {
+        "Name": name.strip(),
+        "Grid_Reference": grid_reference.strip() or None,
+        "Latitude": latitude,
+        "Longitude": longitude,
+    }
+
+    try:
+        if mode == "add":
+            insert_location(conn, payload)
+            st.success("Location added.")
+        else:
+            assert location.get("Id") is not None
+            update_location(conn, int(location["Id"]), payload)
+            st.success("Location updated.")
+        st.rerun()
+    except sqlite3.IntegrityError as exc:
+        st.error(f"Could not save location: {exc}")
+
+
 # -----------------------------------------------------------------------------
 # Main UI
 # -----------------------------------------------------------------------------
@@ -774,7 +991,7 @@ def main() -> None:
     """Run the Streamlit application."""
     st.set_page_config(page_title="Plate Library", layout="wide")
     st.title("Plate Library")
-    st.caption("Simple local maintenance UI for the PLATE and INVESTIGATION tables")
+    st.caption("Simple local maintenance UI for the PLATE, INVESTIGATION and LOCATION tables")
 
     with st.sidebar:
         st.header("Database")
@@ -803,7 +1020,15 @@ def main() -> None:
                 st.error("This database does not contain an INVESTIGATION table.")
                 return
 
-            top_plate_tab, top_investigation_tab = st.tabs(["Plates", "Investigations"])
+            if not table_exists(conn, "LOCATION"):
+                st.error("This database does not contain a LOCATION table.")
+                return
+
+            top_plate_tab, top_investigation_tab, top_location_tab = st.tabs([
+                "Plates",
+                "Investigations",
+                "Locations",
+            ])
 
             with top_plate_tab:
                 add_tab, edit_tab, browse_tab = st.tabs(
@@ -947,6 +1172,78 @@ def main() -> None:
                         st.caption(f"{len(filtered_rows)} investigation(s) shown")
                     else:
                         st.info("No investigations found.")
+
+            with top_location_tab:
+                add_tab, edit_tab, browse_tab = st.tabs(
+                    ["Add location", "Edit location", "Browse"]
+                )
+
+                with add_tab:
+                    st.subheader("Add location")
+                    render_location_form(
+                        conn,
+                        mode="add",
+                        db_file=db_file,
+                        datasette_url=datasette_url,
+                    )
+
+                with edit_tab:
+                    st.subheader("Edit location")
+                    location_rows = fetch_location_list(conn)
+
+                    if not location_rows:
+                        st.info("No locations yet.")
+                    else:
+                        edit_options = [
+                            {
+                                "Id": row["Id"],
+                                "Label": row["Name"]
+                                if not row["Grid_Reference"]
+                                else f'{row["Name"]} | {row["Grid_Reference"]}',
+                            }
+                            for row in location_rows
+                        ]
+
+                        selected = st.selectbox(
+                            "Choose a location to edit",
+                            options=edit_options,
+                            format_func=lambda x: x["Label"],
+                            key="location_edit_select",
+                        )
+                        location = fetch_location(conn, int(selected["Id"]))
+                        if location is not None:
+                            render_location_form(
+                                conn,
+                                mode="edit",
+                                db_file=db_file,
+                                datasette_url=datasette_url,
+                                location=location,
+                            )
+
+                with browse_tab:
+                    st.subheader("Current locations")
+                    location_rows = fetch_location_list(conn)
+                    search = st.text_input("Search locations", key="location_search")
+
+                    if location_rows:
+                        if search.strip():
+                            search_text = search.strip().lower()
+                            filtered_rows = [
+                                row
+                                for row in location_rows
+                                if any(search_text in str(value).lower() for value in row.values())
+                            ]
+                        else:
+                            filtered_rows = location_rows
+
+                        st.dataframe(
+                            filtered_rows,
+                            use_container_width=True,
+                            hide_index=True,
+                        )
+                        st.caption(f"{len(filtered_rows)} location(s) shown")
+                    else:
+                        st.info("No locations found.")
 
     except sqlite3.Error as exc:
         st.error(f"SQLite error: {exc}")
