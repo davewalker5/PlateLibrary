@@ -471,21 +471,32 @@ def render_browse_table(
     entity_name: str,
     search_key: str,
     search_label: str,
-) -> None:
-    """Render a simple searchable table for one entity type."""
+) -> int | None:
+    """Render a searchable selectable table and return the selected record Id."""
     search = st.text_input(search_label, key=search_key)
 
     if not rows:
         st.info(f"No {entity_name} found.")
-        return
+        return None
 
     filtered_rows = filter_rows(rows, search)
-    st.dataframe(
+
+    event = st.dataframe(
         filtered_rows,
         use_container_width=True,
         hide_index=True,
+        on_select="rerun",
+        selection_mode="single-row",
+        key=f"{entity_name}_browse_table",
     )
     st.caption(f"{len(filtered_rows)} {entity_name}(s) shown")
+
+    selected_rows = event.selection.rows
+    if not selected_rows:
+        return None
+
+    selected_idx = selected_rows[0]
+    return int(filtered_rows[selected_idx]["Id"])
 
 
 def render_maintenance_section(
@@ -508,14 +519,32 @@ def render_maintenance_section(
 ) -> None:
     """Render the repeated add/edit/browse pattern for one entity type.
 
-    Plates, investigations and locations all share the same broad page layout:
-    an add tab, an edit tab with a select box, and a browse tab with a search
-    box and dataframe. Centralising that pattern keeps the main function much
-    shorter and makes future GitHub maintenance easier.
+    Uses a segmented control instead of st.tabs so the active view can be
+    driven reliably from session state after a row is selected in Browse.
     """
-    add_tab, edit_tab, browse_tab = st.tabs([add_title, edit_title, browse_title])
+    view_key = f"{entity_name}_view"
+    pending_view_key = f"{entity_name}_pending_view"
+    selected_id_key = f"{entity_name}_selected_id"
 
-    with add_tab:
+    views = [add_title, edit_title, browse_title]
+
+    # Apply any deferred view change BEFORE the widget is instantiated.
+    if pending_view_key in st.session_state:
+        st.session_state[view_key] = st.session_state.pop(pending_view_key)
+
+    if view_key not in st.session_state:
+        st.session_state[view_key] = add_title
+
+    active_view = st.segmented_control(
+        "Mode",
+        options=views,
+        default=st.session_state[view_key],
+        key=view_key,
+        selection_mode="single",
+        label_visibility="collapsed",
+    )
+
+    if active_view == add_title:
         st.subheader(add_title)
         render_form(
             conn,
@@ -524,7 +553,7 @@ def render_maintenance_section(
             datasette_url=datasette_url,
         )
 
-    with edit_tab:
+    elif active_view == edit_title:
         st.subheader(edit_title)
         rows = fetch_list(conn)
 
@@ -532,12 +561,26 @@ def render_maintenance_section(
             st.info(f"No {entity_name} yet.")
         else:
             edit_options = build_edit_options(rows, option_label_builder)
+
+            default_index = 0
+            selected_id = st.session_state.get(selected_id_key)
+
+            if selected_id is not None:
+                for idx, option in enumerate(edit_options):
+                    if option["Id"] == selected_id:
+                        default_index = idx
+                        break
+
             selected = st.selectbox(
                 edit_select_label,
                 options=edit_options,
+                index=default_index,
                 format_func=lambda x: x["Label"],
                 key=edit_select_key,
             )
+
+            st.session_state[selected_id_key] = int(selected["Id"])
+
             record = fetch_record(conn, int(selected["Id"]))
             if record is not None:
                 render_form(
@@ -548,16 +591,20 @@ def render_maintenance_section(
                     **{entity_name: record},
                 )
 
-    with browse_tab:
+    elif active_view == browse_title:
         st.subheader(f"Current {entity_name}s")
         rows = fetch_list(conn)
-        render_browse_table(
+        clicked_id = render_browse_table(
             rows,
             entity_name=entity_name,
             search_key=search_key,
             search_label=search_label,
         )
 
+        if clicked_id is not None:
+            st.session_state[selected_id_key] = clicked_id
+            st.session_state[pending_view_key] = edit_title
+            st.rerun()
 
 # -----------------------------------------------------------------------------
 # INSERT / UPDATE / DELETE helpers
