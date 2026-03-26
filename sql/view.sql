@@ -3,6 +3,13 @@ SELECT          p.Date,
                 sp.Scientific_Name AS "Scientific Name",
                 sp.Common_Name AS "Common Name",
                 p.Specimen,
+                CASE
+                    WHEN l.Id IS NULL THEN NULL
+                    WHEN l.Grid_Reference IS NOT NULL THEN l.Grid_Reference
+                    WHEN l.Latitude IS NOT NULL AND l.Longitude IS NOT NULL
+                        THEN l.Latitude || ', ' || l.Longitude
+                    ELSE l.Name
+                END AS "Location",
                 p.Plate,
                 p.Reference,
                 i.Reference AS "Investigation",
@@ -21,4 +28,5 @@ INNER JOIN      SCHEME sc ON sc.Id = se.Scheme_Id
 INNER JOIN      OBJECTIVE o ON o.Id = p.Objective_Id
 INNER JOIN      MICROSCOPE m ON m.Id = o.Microscope_Id
 INNER JOIN      CAMERA c ON c.Id = p.Camera_Id
-LEFT OUTER JOIN SPECIES sp ON sp.Id = p.Species_Id;
+LEFT OUTER JOIN SPECIES sp ON sp.Id = p.Species_Id
+LEFT OUTER JOIN LOCATION l ON l.Id = p.Location_Id;
