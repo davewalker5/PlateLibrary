@@ -81,7 +81,18 @@ Open a terminal window and run the following script to start streamlit:
 streamlit run src/maintain_plates.py
 ```
 
-Use this to:
+The script will locate the database as follows:
+
+- If the environment variable MICROSCOPY_PLATE_LIBRARY is set, use *plate_library.db* in the ***folder*** named in the environment variable
+- Otherwise, use *plate_library.db* in the *data* folder of the repository
+
+Alternatively, the database file path can be specified on the command line:
+
+```bash
+streamlit run src/maintain_plates.py -- --db path/to/database.db
+```
+
+The Streamlit-bsed editor is used to:
 
 - Add/edit plates
 - Add/edit investigations

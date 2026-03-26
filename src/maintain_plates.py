@@ -25,8 +25,13 @@ from contextlib import closing
 from datetime import date, datetime
 from pathlib import Path
 from typing import Any
-
+import argparse
 import streamlit as st
+
+
+PROGRAM_NAME = "Microscopy Plate Library Maintenance UI"
+PROGRAM_VERSION = "1.0.0"
+PROGRAM_DESCRIPTION = "Maintainance UI for the microscopy plate library"
 
 # Default location for the local Datasette instance and database name
 DEFAULT_DATASETTE_URL = "http://127.0.0.1:8001"
@@ -1116,16 +1121,35 @@ def render_location_form(
 # -----------------------------------------------------------------------------
 # Main UI
 # -----------------------------------------------------------------------------
+
+@st.cache_resource
+def parse_args() -> argparse.Namespace:
+    """Parse command line arguments. These are passed using e.g. the following syntax:
+    
+    streamlit run -- --db data/plate_library.db
+    """
+    parser = argparse.ArgumentParser(
+        prog=f"{PROGRAM_NAME} v{PROGRAM_VERSION}",
+        description=PROGRAM_DESCRIPTION
+    )
+
+    default_db_path = database_path()
+    parser.add_argument("--db", default=default_db_path)
+
+    return parser.parse_args()
+
+
 def main() -> None:
     """Run the Streamlit application."""
     st.set_page_config(page_title="Plate Library", layout="wide")
     st.title("Plate Library")
     st.caption("Simple local maintenance UI for the PLATE, INVESTIGATION and LOCATION tables")
 
+    args = parse_args()
+
     with st.sidebar:
         st.header("Database")
-        default_db_path = database_path()
-        db_path = st.text_input("SQLite DB path", value=default_db_path)
+        db_path = st.text_input("SQLite DB path", value=args.db)
 
         st.header("Datasette")
         datasette_url = st.text_input("Datasette base URL", value=DEFAULT_DATASETTE_URL)
