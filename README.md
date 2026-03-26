@@ -85,11 +85,12 @@ Use this to:
 
 - Add/edit plates
 - Add/edit investigations
+- Add/edit locations
 - Search and browse the data
 - Delete plates
 - Quick links to Datasette
 
-Plates and investigations are considered the fastest-moving data in need of a maintenance UI. The remaining data is likely to be relatively static and the expectation is this will be maintained in SQLite itself.
+Plates, investigations and locations are considered the fastest-moving data in need of a maintenance UI. The remaining data is likely to be relatively static and the expectation is this will be maintained in SQLite itself.
 
 The Streamlit UI includes a link to Datasette and if you want to use this then Datasette should also be started (see below)
 
