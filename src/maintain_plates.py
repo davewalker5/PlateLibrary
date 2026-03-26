@@ -217,18 +217,40 @@ def fetch_plate_list(conn: sqlite3.Connection) -> list[dict[str, Any]]:
     return fetch_lookup(
         conn,
         """
-        SELECT
-            p.Id,
-            p.Date,
-            p.Plate,
-            p.Reference,
-            p.Specimen,
-            COALESCE(sp.Common_Name, sp.Scientific_Name, '') AS Species,
-            i.Reference AS Investigation
-        FROM PLATE p
-        LEFT JOIN SPECIES sp ON sp.Id = p.Species_Id
-        INNER JOIN INVESTIGATION i ON i.Id = p.Investigation_Id
-        ORDER BY p.Date DESC, p.Plate
+        SELECT          p.Id,
+                        p.Date,
+                        sc.Code || ' ' || se.Name AS "Series",
+                        sp.Scientific_Name AS "Scientific Name",
+                        sp.Common_Name AS "Common Name",
+                        p.Specimen,
+                        CASE
+                            WHEN l.Id IS NULL THEN NULL
+                            WHEN l.Grid_Reference IS NOT NULL THEN l.Grid_Reference
+                            WHEN l.Latitude IS NOT NULL AND l.Longitude IS NOT NULL
+                                THEN l.Latitude || ', ' || l.Longitude
+                            ELSE l.Name
+                        END AS "Location",
+                        p.Plate,
+                        p.Reference,
+                        i.Reference AS "Investigation",
+                        m.Description AS "Microscope",
+                        o.Description AS "Objective",
+                        o.Magnification,
+                        c.Description AS "Camera",
+                        c.Lower_Effective_Magnification AS "Lower Effective Magnification",
+                        c.Upper_Effective_Magnification AS "Upper Effective Magnification",
+                        p.Notebook_Reference AS "Notebook Reference",
+                        p.Notes
+        FROM            PLATE p
+        INNER JOIN      INVESTIGATION i ON i.Id = p.Investigation_Id
+        INNER JOIN      SERIES se ON se.Id = i.Series_Id
+        INNER JOIN      SCHEME sc ON sc.Id = se.Scheme_Id
+        INNER JOIN      OBJECTIVE o ON o.Id = p.Objective_Id
+        INNER JOIN      MICROSCOPE m ON m.Id = o.Microscope_Id
+        INNER JOIN      CAMERA c ON c.Id = p.Camera_Id
+        LEFT OUTER JOIN SPECIES sp ON sp.Id = p.Species_Id
+        LEFT OUTER JOIN LOCATION l ON l.Id = p.Location_Id
+        ORDER BY        p.Plate
         """,
     )
 
@@ -397,16 +419,15 @@ def make_nullable_options(
     return [{"Id": None, "Label": placeholder}] + options
 
 
-def store_last_used_plate_values(payload: dict[str, Any]) -> None:
-    """Remember commonly repeated PLATE selections between submissions."""
-    st.session_state["last_objective_id"] = payload["Objective_Id"]
-    st.session_state["last_camera_id"] = payload["Camera_Id"]
-    st.session_state["last_investigation_id"] = payload["Investigation_Id"]
+def form_key_base(entity: str, mode: str, record_id: int | None = None) -> str:
+    """Return a stable widget-key prefix for one rendered form instance.
 
-
-def store_last_used_investigation_values(payload: dict[str, Any]) -> None:
-    """Remember the last selected series for adding multiple investigations."""
-    st.session_state["last_series_id"] = payload["Series_Id"]
+    Including the record id for edit forms forces Streamlit to treat each
+    selected record as a fresh set of widgets, which prevents values from a
+    previously edited record from lingering in optional fields.
+    """
+    suffix = "new" if record_id is None else str(record_id)
+    return f"{entity}_{mode}_{suffix}"
 
 
 # -----------------------------------------------------------------------------
@@ -772,49 +793,61 @@ def render_plate_form(
         return
 
     plate = plate or {}
-    default_date = parse_db_date(plate.get("Date"))
+    plate_id = int(plate["Id"]) if plate.get("Id") is not None else None
+    key_base = form_key_base("plate", mode, plate_id)
 
-    # For new records, reuse the last selections to speed up repetitive entry.
+    default_date = parse_db_date(plate.get("Date")) if mode == "edit" else None
+
     if mode == "add":
-        default_objective_id = st.session_state.get("last_objective_id")
-        default_camera_id = st.session_state.get("last_camera_id")
-        default_investigation_id = st.session_state.get("last_investigation_id")
+        objective_form_options = make_nullable_options(objective_options, placeholder="— Select objective —")
+        camera_form_options = make_nullable_options(camera_options, placeholder="— Select camera —")
+        investigation_form_options = make_nullable_options(investigation_options, placeholder="— Select investigation —")
+        default_objective_id = None
+        default_camera_id = None
+        default_investigation_id = None
     else:
+        objective_form_options = objective_options
+        camera_form_options = camera_options
+        investigation_form_options = investigation_options
         default_objective_id = plate.get("Objective_Id")
         default_camera_id = plate.get("Camera_Id")
         default_investigation_id = plate.get("Investigation_Id")
 
-    with st.form(f"{mode}_plate_form", clear_on_submit=False):
+    with st.form(f"{mode}_plate_form_{plate_id if plate_id is not None else 'new'}", clear_on_submit=(mode == "add")):
         col1, col2 = st.columns(2)
 
         with col1:
-            plate_date = st.date_input("Date", value=default_date)
-            specimen = st.text_input("Specimen", value=plate.get("Specimen") or "")
-            plate_code = st.text_input("Plate", value=plate.get("Plate") or "")
-            reference = st.text_input("Reference", value=plate.get("Reference") or "")
+            plate_date = st.date_input("Date", value=default_date, key=f"{key_base}_date")
+            specimen = st.text_input("Specimen", value=plate.get("Specimen") or "", key=f"{key_base}_specimen")
+            plate_code = st.text_input("Plate", value=plate.get("Plate") or "", key=f"{key_base}_plate")
+            reference = st.text_input("Reference", value=plate.get("Reference") or "", key=f"{key_base}_reference")
 
         with col2:
             notebook_reference = st.text_input(
                 "Notebook Reference",
                 value=plate.get("Notebook_Reference") or "",
+                key=f"{key_base}_notebook_reference",
             )
             species = st.selectbox(
                 "Species",
                 options=species_options,
                 index=option_index(species_options, plate.get("Species_Id")),
                 format_func=lambda x: x["Label"],
+                key=f"{key_base}_species",
             )
             objective = st.selectbox(
                 "Objective *",
-                options=objective_options,
-                index=option_index(objective_options, default_objective_id),
+                options=objective_form_options,
+                index=option_index(objective_form_options, default_objective_id),
                 format_func=lambda x: x["Label"],
+                key=f"{key_base}_objective",
             )
             camera = st.selectbox(
                 "Camera *",
-                options=camera_options,
-                index=option_index(camera_options, default_camera_id),
+                options=camera_form_options,
+                index=option_index(camera_form_options, default_camera_id),
                 format_func=lambda x: x["Label"],
+                key=f"{key_base}_camera",
             )
 
         stain = st.selectbox(
@@ -822,6 +855,7 @@ def render_plate_form(
             options=stain_options,
             index=option_index(stain_options, plate.get("Stain_Id")),
             format_func=lambda x: x["Label"],
+            key=f"{key_base}_stain",
         )
 
         location = st.selectbox(
@@ -829,16 +863,18 @@ def render_plate_form(
             options=location_options,
             index=option_index(location_options, plate.get("Location_Id")),
             format_func=lambda x: x["Label"],
+            key=f"{key_base}_location",
         )
 
         investigation = st.selectbox(
             "Investigation *",
-            options=investigation_options,
-            index=option_index(investigation_options, default_investigation_id),
+            options=investigation_form_options,
+            index=option_index(investigation_form_options, default_investigation_id),
             format_func=lambda x: x["Label"],
+            key=f"{key_base}_investigation",
         )
 
-        notes = st.text_area("Notes", value=plate.get("Notes") or "", height=150)
+        notes = st.text_area("Notes", value=plate.get("Notes") or "", height=150, key=f"{key_base}_notes")
 
         submitted = st.form_submit_button(
             "Add plate" if mode == "add" else "Save changes",
@@ -874,6 +910,8 @@ def render_plate_form(
     # Perform lightweight validation in the UI before attempting the INSERT or
     # UPDATE. The database still remains the final source of truth.
     errors: list[str] = []
+    if plate_date is None:
+        errors.append("Date is required.")
     if not specimen.strip():
         errors.append("Specimen is required.")
     if not plate_code.strip():
@@ -910,12 +948,10 @@ def render_plate_form(
     try:
         if mode == "add":
             insert_plate(conn, payload)
-            store_last_used_plate_values(payload)
             st.success("Plate added.")
         else:
             assert plate.get("Id") is not None
             update_plate(conn, int(plate["Id"]), payload)
-            store_last_used_plate_values(payload)
             st.success("Plate updated.")
         st.rerun()
     except sqlite3.IntegrityError as exc:
@@ -937,20 +973,25 @@ def render_investigation_form(
         return
 
     investigation = investigation or {}
+    investigation_id = int(investigation["Id"]) if investigation.get("Id") is not None else None
+    key_base = form_key_base("investigation", mode, investigation_id)
 
     if mode == "add":
-        default_series_id = st.session_state.get("last_series_id")
+        series_form_options = make_nullable_options(series_options, placeholder="— Select series —")
+        default_series_id = None
     else:
+        series_form_options = series_options
         default_series_id = investigation.get("Series_Id")
 
-    with st.form(f"{mode}_investigation_form", clear_on_submit=False):
-        reference = st.text_input("Reference", value=investigation.get("Reference") or "")
-        title = st.text_input("Title", value=investigation.get("Title") or "")
+    with st.form(f"{mode}_investigation_form_{investigation_id if investigation_id is not None else 'new'}", clear_on_submit=(mode == "add")):
+        reference = st.text_input("Reference", value=investigation.get("Reference") or "", key=f"{key_base}_reference")
+        title = st.text_input("Title", value=investigation.get("Title") or "", key=f"{key_base}_title")
         series = st.selectbox(
             "Series *",
-            options=series_options,
-            index=option_index(series_options, default_series_id),
+            options=series_form_options,
+            index=option_index(series_form_options, default_series_id),
             format_func=lambda x: x["Label"],
+            key=f"{key_base}_series",
         )
 
         submitted = st.form_submit_button(
@@ -988,12 +1029,10 @@ def render_investigation_form(
     try:
         if mode == "add":
             insert_investigation(conn, payload)
-            store_last_used_investigation_values(payload)
             st.success("Investigation added.")
         else:
             assert investigation.get("Id") is not None
             update_investigation(conn, int(investigation["Id"]), payload)
-            store_last_used_investigation_values(payload)
             st.success("Investigation updated.")
         st.rerun()
     except sqlite3.IntegrityError as exc:
@@ -1009,14 +1048,17 @@ def render_location_form(
 ) -> None:
     """Render the add/edit form for LOCATION records."""
     location = location or {}
+    location_id = int(location["Id"]) if location.get("Id") is not None else None
+    key_base = form_key_base("location", mode, location_id)
 
     # Streamlit text_input is used for latitude and longitude so that empty
     # values remain genuinely null in SQLite rather than being forced to 0.0.
-    with st.form(f"{mode}_location_form", clear_on_submit=False):
-        name = st.text_input("Name *", value=location.get("Name") or "")
+    with st.form(f"{mode}_location_form_{location_id if location_id is not None else 'new'}", clear_on_submit=(mode == "add")):
+        name = st.text_input("Name *", value=location.get("Name") or "", key=f"{key_base}_name")
         grid_reference = st.text_input(
             "Grid Reference",
             value=location.get("Grid_Reference") or "",
+            key=f"{key_base}_grid_reference",
         )
 
         col1, col2 = st.columns(2)
@@ -1025,12 +1067,14 @@ def render_location_form(
                 "Latitude",
                 value="" if location.get("Latitude") is None else str(location.get("Latitude")),
                 help="Leave blank if the location does not yet have a coordinate.",
+                key=f"{key_base}_latitude",
             )
         with col2:
             longitude_text = st.text_input(
                 "Longitude",
                 value="" if location.get("Longitude") is None else str(location.get("Longitude")),
                 help="Leave blank if the location does not yet have a coordinate.",
+                key=f"{key_base}_longitude",
             )
 
         submitted = st.form_submit_button(
