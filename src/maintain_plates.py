@@ -250,6 +250,7 @@ def fetch_plate_list(conn: sqlite3.Connection) -> list[dict[str, Any]]:
         INNER JOIN      CAMERA c ON c.Id = p.Camera_Id
         LEFT OUTER JOIN SPECIES sp ON sp.Id = p.Species_Id
         LEFT OUTER JOIN LOCATION l ON l.Id = p.Location_Id
+        WHERE           p.Hidden = 0
         ORDER BY        p.Plate
         """,
     )
