@@ -29,4 +29,5 @@ INNER JOIN      OBJECTIVE o ON o.Id = p.Objective_Id
 INNER JOIN      MICROSCOPE m ON m.Id = o.Microscope_Id
 INNER JOIN      CAMERA c ON c.Id = p.Camera_Id
 LEFT OUTER JOIN SPECIES sp ON sp.Id = p.Species_Id
-LEFT OUTER JOIN LOCATION l ON l.Id = p.Location_Id;
+LEFT OUTER JOIN LOCATION l ON l.Id = p.Location_Id
+WHERE           p.Hidden = 0;
