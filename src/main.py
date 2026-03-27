@@ -40,6 +40,7 @@ from location_sql import fetch_location, fetch_location_list
 from camera_sql import fetch_camera_list, fetch_camera_record
 from microscope_sql import fetch_microscope_list, fetch_microscope_record
 from objective_sql import fetch_objective_list, fetch_objective_record
+from stain_sql import fetch_stain_list, fetch_stain_record
 
 
 # -----------------------------------------------------------------------------
@@ -55,6 +56,7 @@ from species_form_renderer import render_species_form
 from camera_form_renderer import render_camera_form
 from microscope_form_renderer import render_microscope_form
 from objective_form_renderer import render_objective_form
+from stain_form_renderer import render_stain_form
 
 
 PROGRAM_NAME = "Microscopy Plate Library Maintenance UI"
@@ -121,7 +123,7 @@ def main() -> None:
 
             load_sql_queries(PROJECT_FOLDER)
 
-            top_plate_tab, top_investigation_tab, top_location_tab, top_scheme_tab, top_series_tab, top_species_tab, top_camera_tab, top_microscope_tab, top_objective_tab = st.tabs([
+            top_plate_tab, top_investigation_tab, top_location_tab, top_scheme_tab, top_series_tab, top_species_tab, top_camera_tab, top_microscope_tab, top_objective_tab, top_stain_tab = st.tabs([
                 "Plates",
                 "Investigations",
                 "Locations",
@@ -130,7 +132,8 @@ def main() -> None:
                 "Species",
                 "Cameras",
                 "Microscopes",
-                "Objectives"
+                "Objectives",
+                "Stains"
             ])
 
             with top_plate_tab:
@@ -322,6 +325,25 @@ def main() -> None:
                     option_label_builder=lambda row: (
                         f'{row["Microscope_Description"]} | {row["Description"]} | {row["Magnification"]}x'
                     ),
+                )
+
+            with top_stain_tab:
+                render_maintenance_section(
+                    conn=conn,
+                    db_file=db_file,
+                    datasette_url=datasette_url,
+                    entity_name="stain",
+                    add_title="Add stain",
+                    edit_title="Edit stain",
+                    browse_title="Browse",
+                    fetch_list=fetch_stain_list,
+                    fetch_record=fetch_stain_record,
+                    render_form=render_stain_form,
+                    edit_select_label="Choose a stain to edit",
+                    edit_select_key="stain_edit_select",
+                    search_key="stain_search",
+                    search_label="Search stains",
+                    option_label_builder=lambda row: row["Description"],
                 )
 
     except sqlite3.Error as exc:
