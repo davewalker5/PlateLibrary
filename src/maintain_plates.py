@@ -38,6 +38,35 @@ PROGRAM_DESCRIPTION = "Maintenance UI for the microscopy plate library"
 DEFAULT_DATASETTE_URL = "http://127.0.0.1:8001"
 DB_NAME = "plate_library.db"
 
+# Root folder of the project
+PROJECT_FOLDER = os.path.dirname(os.path.dirname(__file__))
+
+QUERIES = {
+    "fetch_species": None,
+    "fetch_objectives": None,
+    "fetch_cameras": None,
+    "fetch_stains": None,
+    "fetch_locations": None,
+    "fetch_series": None,
+    "fetch_investigations": None,
+    "fetch_plate_list": None,
+    "fetch_plate": None,
+    "fetch_investigation_list": None,
+    "fetch_investigation": None,
+    "fetch_location_list": None,
+    "fetch_location": None,
+    "load_plate_format_for_investigation": None,
+    "load_existing_plate_references": None,
+    "insert_plate": None,
+    "update_plate": None,
+    "delete_plate": None,
+    "insert_location": None,
+    "update_investigation": None,
+    "update_location": None,
+    "delete_location": None,
+    "insert_investigation": None,
+}
+
 # -----------------------------------------------------------------------------
 # SQLite helpers
 # -----------------------------------------------------------------------------
@@ -49,8 +78,7 @@ def database_path():
     """
     db_folder = os.getenv("MICROSCOPY_PLATE_LIBRARY")
     if not db_folder:
-        project_folder = os.path.dirname(os.path.dirname(__file__))
-        db_folder = Path(project_folder) / "data"
+        db_folder = Path(PROJECT_FOLDER) / "data"
 
     return (Path(db_folder) / DB_NAME).absolute()
 
@@ -82,132 +110,51 @@ def fetch_lookup(conn: sqlite3.Connection, sql: str) -> list[dict[str, Any]]:
     return [dict(row) for row in rows]
 
 
+def load_sql_queries():
+    """Load the SQL queries"""
+    for key in QUERIES.keys():
+        file_name = key + ".sql"
+        file_path = (Path(PROJECT_FOLDER) / "sql" / file_name).resolve()
+        with open(file_path, "r") as f:
+            QUERIES[key] = f.read()
+
+
 # -----------------------------------------------------------------------------
 # Lookup queries used by the PLATE, INVESTIGATION and LOCATION forms
 # -----------------------------------------------------------------------------
 def fetch_species(conn: sqlite3.Connection) -> list[dict[str, Any]]:
     """Return species records formatted for a select box."""
-    return fetch_lookup(
-        conn,
-        """
-        SELECT
-            Id,
-            CASE
-                WHEN Common_Name IS NOT NULL AND Scientific_Name IS NOT NULL
-                    THEN Common_Name || ' — ' || Scientific_Name
-                WHEN Common_Name IS NOT NULL
-                    THEN Common_Name
-                WHEN Scientific_Name IS NOT NULL
-                    THEN Scientific_Name
-                ELSE '(Unnamed species record #' || Id || ')'
-            END AS Label
-        FROM SPECIES
-        ORDER BY
-            CASE WHEN Common_Name IS NULL THEN 1 ELSE 0 END,
-            Common_Name,
-            Scientific_Name
-        """,
-    )
+    return fetch_lookup(conn, QUERIES["fetch_species"])
 
 
 def fetch_objectives(conn: sqlite3.Connection) -> list[dict[str, Any]]:
     """Return microscope objectives formatted for display in the UI."""
-    return fetch_lookup(
-        conn,
-        """
-        SELECT
-            o.Id,
-            m.Description || ' | ' || o.Description || ' | ' || o.Magnification || 'x' AS Label
-        FROM OBJECTIVE o
-        INNER JOIN MICROSCOPE m ON m.Id = o.Microscope_Id
-        ORDER BY m.Description, o.Magnification, o.Description
-        """,
-    )
+    return fetch_lookup(conn, QUERIES["fetch_objectives"])
 
 
 def fetch_cameras(conn: sqlite3.Connection) -> list[dict[str, Any]]:
     """Return camera records formatted for the select box."""
-    return fetch_lookup(
-        conn,
-        """
-        SELECT
-            Id,
-            CASE
-                WHEN Lower_Effective_Magnification IS NOT NULL AND Upper_Effective_Magnification IS NOT NULL
-                    THEN Description || ' | eff. ' || Lower_Effective_Magnification || 'x–' || Upper_Effective_Magnification || 'x'
-                WHEN Lower_Effective_Magnification IS NOT NULL
-                    THEN Description || ' | eff. from ' || Lower_Effective_Magnification || 'x'
-                WHEN Upper_Effective_Magnification IS NOT NULL
-                    THEN Description || ' | eff. to ' || Upper_Effective_Magnification || 'x'
-                ELSE Description
-            END AS Label
-        FROM CAMERA
-        ORDER BY Description
-        """,
-    )
+    return fetch_lookup(conn, QUERIES["fetch_cameras"])
 
 
 def fetch_stains(conn: sqlite3.Connection) -> list[dict[str, Any]]:
     """Return stains formatted for display in the UI."""
-    return fetch_lookup(
-        conn,
-        """
-        SELECT
-            Id,
-            Description AS Label
-        FROM STAIN
-        ORDER BY Description
-        """,
-    )
+    return fetch_lookup(conn, QUERIES["fetch_stains"])
 
 
 def fetch_locations(conn: sqlite3.Connection) -> list[dict[str, Any]]:
     """Return locations formatted for display in the UI."""
-    return fetch_lookup(
-        conn,
-        """
-        SELECT
-            Id,
-            CASE
-                WHEN Grid_Reference IS NOT NULL AND TRIM(Grid_Reference) <> ''
-                    THEN Name || ' | ' || Grid_Reference
-                ELSE Name
-            END AS Label
-        FROM LOCATION
-        ORDER BY Name
-        """,
-    )
+    return fetch_lookup(conn, QUERIES["fetch_locations"])
 
 
 def fetch_series(conn: sqlite3.Connection) -> list[dict[str, Any]]:
     """Return series values formatted for investigation maintenance."""
-    return fetch_lookup(
-        conn,
-        """
-        SELECT
-            se.Id,
-            sc.Code || '-' || se.Code || ' ' || se.Name AS Label
-        FROM SERIES se
-        INNER JOIN SCHEME sc ON sc.Id = se.Scheme_Id
-        ORDER BY sc.Code, se.Name
-        """,
-    )
+    return fetch_lookup(conn, QUERIES["fetch_series"])
 
 
 def fetch_investigations(conn: sqlite3.Connection) -> list[dict[str, Any]]:
     """Return investigations formatted for use in the PLATE form."""
-    return fetch_lookup(
-        conn,
-        """
-        SELECT
-            i.Id,
-            sc.Code || '-' || se.Code || ' ' || se.Name || ' | ' || i.Reference || ' | ' || i.Title AS Label
-        FROM INVESTIGATION i
-        INNER JOIN SERIES se ON se.Id = i.Series_Id
-        INNER JOIN SCHEME sc ON sc.Id = se.Scheme_Id
-        ORDER BY sc.Code, se.Name, i.Reference
-        """,
-    )
+    return fetch_lookup(conn, QUERIES["fetch_investigations"])
 
 
 # -----------------------------------------------------------------------------
@@ -215,153 +162,36 @@ def fetch_investigations(conn: sqlite3.Connection) -> list[dict[str, Any]]:
 # -----------------------------------------------------------------------------
 def fetch_plate_list(conn: sqlite3.Connection) -> list[dict[str, Any]]:
     """Return a compact list of plates for browsing and selection."""
-    return fetch_lookup(
-        conn,
-        """
-        SELECT          p.Id,
-                        p.Date,
-                        sc.Code || '-' || se.Code || ' ' || se.Name AS "Series",
-                        sp.Scientific_Name AS "Scientific Name",
-                        sp.Common_Name AS "Common Name",
-                        p.Specimen,
-                        CASE
-                            WHEN l.Id IS NULL THEN NULL
-                            WHEN l.Grid_Reference IS NOT NULL THEN l.Grid_Reference
-                            WHEN l.Latitude IS NOT NULL AND l.Longitude IS NOT NULL
-                                THEN l.Latitude || ', ' || l.Longitude
-                            ELSE l.Name
-                        END AS "Location",
-                        p.Plate,
-                        p.Reference,
-                        i.Reference AS "Investigation",
-                        m.Description AS "Microscope",
-                        o.Description AS "Objective",
-                        o.Magnification,
-                        c.Description AS "Camera",
-                        c.Lower_Effective_Magnification AS "Lower Effective Magnification",
-                        c.Upper_Effective_Magnification AS "Upper Effective Magnification",
-                        p.Notebook_Reference AS "Notebook Reference",
-                        p.Notes
-        FROM            PLATE p
-        INNER JOIN      INVESTIGATION i ON i.Id = p.Investigation_Id
-        INNER JOIN      SERIES se ON se.Id = i.Series_Id
-        INNER JOIN      SCHEME sc ON sc.Id = se.Scheme_Id
-        INNER JOIN      OBJECTIVE o ON o.Id = p.Objective_Id
-        INNER JOIN      MICROSCOPE m ON m.Id = o.Microscope_Id
-        INNER JOIN      CAMERA c ON c.Id = p.Camera_Id
-        LEFT OUTER JOIN SPECIES sp ON sp.Id = p.Species_Id
-        LEFT OUTER JOIN LOCATION l ON l.Id = p.Location_Id
-        WHERE           p.Hidden = 0
-        ORDER BY        p.Plate
-        """,
-    )
+    return fetch_lookup(conn, QUERIES["fetch_plate_list"])
 
 
 def fetch_plate(conn: sqlite3.Connection, plate_id: int) -> dict[str, Any] | None:
     """Fetch a single PLATE row for editing."""
-    row = conn.execute(
-        """
-        SELECT
-            Id,
-            Date,
-            Specimen,
-            Plate,
-            Reference,
-            Notebook_Reference,
-            Notes,
-            Species_Id,
-            Objective_Id,
-            Camera_Id,
-            Stain_Id,
-            Location_Id,
-            Investigation_Id
-        FROM PLATE
-        WHERE Id = ?
-        """,
-        (plate_id,),
-    ).fetchone()
+    row = conn.execute(QUERIES["fetch_plate"], (plate_id,)).fetchone()
     return dict(row) if row else None
 
 
 def fetch_investigation_list(conn: sqlite3.Connection) -> list[dict[str, Any]]:
     """Return a compact list of investigations for browsing and selection."""
-    return fetch_lookup(
-        conn,
-        """
-        SELECT
-            i.Id,
-            i.Reference,
-            i.Title,
-            sc.Code || '-' || se.Code || ' ' || se.Name AS Series,
-            (
-                SELECT COUNT(*)
-                FROM PLATE p
-                WHERE p.Investigation_Id = i.Id
-            ) AS Plate_Count
-        FROM INVESTIGATION i
-        INNER JOIN SERIES se ON se.Id = i.Series_Id
-        INNER JOIN SCHEME sc ON sc.Id = se.Scheme_Id
-        ORDER BY i.Reference
-        """,
-    )
+    return fetch_lookup(conn, QUERIES["fetch_investigation_list"])
 
 
 def fetch_investigation(
     conn: sqlite3.Connection, investigation_id: int
 ) -> dict[str, Any] | None:
     """Fetch a single INVESTIGATION row for editing."""
-    row = conn.execute(
-        """
-        SELECT
-            Id,
-            Reference,
-            Title,
-            Series_Id
-        FROM INVESTIGATION
-        WHERE Id = ?
-        """,
-        (investigation_id,),
-    ).fetchone()
+    row = conn.execute(QUERIES["fetch_investigation"], (investigation_id,)).fetchone()
     return dict(row) if row else None
 
 
 def fetch_location_list(conn: sqlite3.Connection) -> list[dict[str, Any]]:
     """Return a compact list of locations for browsing and selection."""
-    return fetch_lookup(
-        conn,
-        """
-        SELECT
-            l.Id,
-            l.Name,
-            l.Grid_Reference,
-            l.Latitude,
-            l.Longitude,
-            (
-                SELECT COUNT(*)
-                FROM PLATE p
-                WHERE p.Location_Id = l.Id
-            ) AS Plate_Count
-        FROM LOCATION l
-        ORDER BY l.Name
-        """,
-    )
+    return fetch_lookup(conn, QUERIES["fetch_location_list"])
 
 
 def fetch_location(conn: sqlite3.Connection, location_id: int) -> dict[str, Any] | None:
     """Fetch a single LOCATION row for editing."""
-    row = conn.execute(
-        """
-        SELECT
-            Id,
-            Name,
-            Grid_Reference,
-            Latitude,
-            Longitude
-        FROM LOCATION
-        WHERE Id = ?
-        """,
-        (location_id,),
-    ).fetchone()
+    row = conn.execute(QUERIES["fetch_location"], (location_id,)).fetchone()
     return dict(row) if row else None
 
 
@@ -486,20 +316,7 @@ def suggest_next_plate_for_investigation(
 
     For subsequence series, XXX is incremented and NNN resets to 001.
     """
-    row = conn.execute(
-        """
-        SELECT
-            i.Series_Id AS Series_Id,
-            sc.Code AS Scheme_Code,
-            se.Code AS Series_Code,
-            COALESCE(se.Plate_Format, 'simple') AS Plate_Format
-        FROM INVESTIGATION i
-        INNER JOIN SERIES se ON se.Id = i.Series_Id
-        INNER JOIN SCHEME sc ON sc.Id = se.Scheme_Id
-        WHERE i.Id = ?
-        """,
-        (investigation_id,),
-    ).fetchone()
+    row = conn.execute(QUERIES["load_plate_format_for_investigation"], (investigation_id,)).fetchone()
 
     if row is None:
         return None
@@ -514,17 +331,7 @@ def suggest_next_plate_for_investigation(
 
     prefix = f"{scheme_code}-{series_code}-"
 
-    existing_rows = conn.execute(
-        """
-        SELECT
-            p.Plate,
-            p.Reference
-        FROM PLATE p
-        INNER JOIN INVESTIGATION i ON i.Id = p.Investigation_Id
-        WHERE i.Series_Id = ?
-        """,
-        (series_id,),
-    ).fetchall()
+    existing_rows = conn.execute(QUERIES["load_existing_plate_references"], (series_id,)).fetchall()
 
     max_sequence = 0
 
@@ -720,23 +527,7 @@ def render_maintenance_section(
 def insert_plate(conn: sqlite3.Connection, values: dict[str, Any]) -> None:
     """Insert a new PLATE record."""
     conn.execute(
-        """
-        INSERT INTO PLATE (
-            Date,
-            Specimen,
-            Plate,
-            Reference,
-            Notebook_Reference,
-            Notes,
-            Species_Id,
-            Objective_Id,
-            Camera_Id,
-            Stain_Id,
-            Location_Id,
-            Investigation_Id
-        )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """,
+        QUERIES["insert_plate"],
         (
             values["Date"],
             values["Specimen"],
@@ -758,23 +549,7 @@ def insert_plate(conn: sqlite3.Connection, values: dict[str, Any]) -> None:
 def update_plate(conn: sqlite3.Connection, plate_id: int, values: dict[str, Any]) -> None:
     """Update an existing PLATE record."""
     conn.execute(
-        """
-        UPDATE PLATE
-        SET
-            Date = ?,
-            Specimen = ?,
-            Plate = ?,
-            Reference = ?,
-            Notebook_Reference = ?,
-            Notes = ?,
-            Species_Id = ?,
-            Objective_Id = ?,
-            Camera_Id = ?,
-            Stain_Id = ?,
-            Location_Id = ?,
-            Investigation_Id = ?
-        WHERE Id = ?
-        """,
+       QUERIES["update_plate"],
         (
             values["Date"],
             values["Specimen"],
@@ -796,21 +571,14 @@ def update_plate(conn: sqlite3.Connection, plate_id: int, values: dict[str, Any]
 
 def delete_plate(conn: sqlite3.Connection, plate_id: int) -> None:
     """Delete a PLATE record."""
-    conn.execute("DELETE FROM PLATE WHERE Id = ?", (plate_id,))
+    conn.execute(QUERIES["delete_plate"], (plate_id,))
     conn.commit()
 
 
 def insert_investigation(conn: sqlite3.Connection, values: dict[str, Any]) -> None:
     """Insert a new INVESTIGATION record."""
     conn.execute(
-        """
-        INSERT INTO INVESTIGATION (
-            Reference,
-            Title,
-            Series_Id
-        )
-        VALUES (?, ?, ?)
-        """,
+       QUERIES["insert_investigation"],
         (
             values["Reference"],
             values["Title"],
@@ -826,15 +594,7 @@ def update_investigation(
     values: dict[str, Any],
 ) -> None:
     """Update an existing INVESTIGATION record."""
-    conn.execute(
-        """
-        UPDATE INVESTIGATION
-        SET
-            Reference = ?,
-            Title = ?,
-            Series_Id = ?
-        WHERE Id = ?
-        """,
+    conn.execute(QUERIES["update_investigation"],
         (
             values["Reference"],
             values["Title"],
@@ -847,16 +607,7 @@ def update_investigation(
 
 def insert_location(conn: sqlite3.Connection, values: dict[str, Any]) -> None:
     """Insert a new LOCATION record."""
-    conn.execute(
-        """
-        INSERT INTO LOCATION (
-            Name,
-            Grid_Reference,
-            Latitude,
-            Longitude
-        )
-        VALUES (?, ?, ?, ?)
-        """,
+    conn.execute(QUERIES["insert_location"],
         (
             values["Name"],
             values["Grid_Reference"],
@@ -870,15 +621,7 @@ def insert_location(conn: sqlite3.Connection, values: dict[str, Any]) -> None:
 def update_location(conn: sqlite3.Connection, location_id: int, values: dict[str, Any]) -> None:
     """Update an existing LOCATION record."""
     conn.execute(
-        """
-        UPDATE LOCATION
-        SET
-            Name = ?,
-            Grid_Reference = ?,
-            Latitude = ?,
-            Longitude = ?
-        WHERE Id = ?
-        """,
+        QUERIES["update_location"],
         (
             values["Name"],
             values["Grid_Reference"],
@@ -892,7 +635,7 @@ def update_location(conn: sqlite3.Connection, location_id: int, values: dict[str
 
 def delete_location(conn: sqlite3.Connection, location_id: int) -> None:
     """Delete a LOCATION record."""
-    conn.execute("DELETE FROM LOCATION WHERE Id = ?", (location_id,))
+    conn.execute(QUERIES["delete_location"], (location_id,))
     conn.commit()
 
 
@@ -1474,6 +1217,8 @@ def main() -> None:
             if not table_exists(conn, "LOCATION"):
                 st.error("This database does not contain a LOCATION table.")
                 return
+            
+            load_sql_queries()
 
             top_plate_tab, top_investigation_tab, top_location_tab = st.tabs([
                 "Plates",
