@@ -98,6 +98,15 @@ def table_exists(conn: sqlite3.Connection, table_name: str) -> bool:
     return row is not None
 
 
+def confirm_schema(conn: sqlite3.Connection) -> bool:
+    """Check the schema for the target database is intact"""
+    for table in TABLES:
+        if not table_exists(conn, table):
+            st.error(f"This database does not contain a {table} table.")
+            return False
+    return True
+
+
 def fetch_lookup(conn: sqlite3.Connection, sql: str) -> list[dict[str, Any]]:
     """Execute a lookup query and return the rows as ordinary dictionaries."""
     rows = conn.execute(sql).fetchall()
@@ -111,12 +120,3 @@ def load_sql_queries(project_folder: str):
         file_path = (Path(project_folder) / "sql" / QUERIES[key]["section"] / file_name).resolve()
         with open(file_path, "r") as f:
             QUERIES[key]["sql"] = f.read()
-
-
-def confirm_schema(conn: sqlite3.Connection) -> bool:
-    """Check the schema for the target database is intact"""
-    for table in TABLES:
-        if not table_exists(conn, table):
-            st.error(f"This database does not contain a {table} table.")
-            return False
-    return True
