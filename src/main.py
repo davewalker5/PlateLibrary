@@ -26,21 +26,23 @@ from pathlib import Path
 import argparse
 import streamlit as st
 
-from scheme_sql import *
-from data_conversion_helpers import *
-from sqlite_helpers import *
-# from plate_numbering import *
-# from plate_preview import *
-from ui_helpers import *
-from species_sql import *
-from series_sql import *
-# from objective_sql import *
-# from camera_sql import *
-# from stain_sql import *
-from location_sql import *
-from investigation_sql import *
-from plate_sql import *
 
+# -----------------------------------------------------------------------------
+# Database query helpers
+# -----------------------------------------------------------------------------
+from sqlite_helpers import database_path, get_connection, confirm_schema, load_sql_queries
+from scheme_sql import fetch_scheme, fetch_scheme_list
+from series_sql import fetch_series_list, fetch_series_record
+from investigation_sql import fetch_investigation, fetch_investigation_list
+from plate_sql import fetch_plate, fetch_plate_list
+from species_sql import fetch_species_record, fetch_species_list
+from location_sql import fetch_location, fetch_location_list
+
+
+# -----------------------------------------------------------------------------
+# Form rendering helpers
+# -----------------------------------------------------------------------------
+from ui_helpers import render_maintenance_section
 from plate_form_renderer import render_plate_form
 from investigation_form_renderer import render_investigation_form
 from location_form_renderer import render_location_form
