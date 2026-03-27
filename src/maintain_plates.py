@@ -31,8 +31,8 @@ import streamlit as st
 
 
 PROGRAM_NAME = "Microscopy Plate Library Maintenance UI"
-PROGRAM_VERSION = "1.0.0"
-PROGRAM_DESCRIPTION = "Maintenance UI for the microscopy plate library"
+PROGRAM_VERSION = "1.6.0"
+PROGRAM_DESCRIPTION = "Maintenance UI for a simple microscopy plate library"
 
 # Default location for the local Datasette instance and database name
 DEFAULT_DATASETTE_URL = "http://127.0.0.1:8001"
@@ -66,6 +66,11 @@ QUERIES = {
     "update_location": None,
     "delete_location": None,
     "insert_investigation": None,
+    "fetch_scheme_list": None,
+    "fetch_scheme": None,
+    "insert_scheme": None,
+    "update_scheme": None,
+    "delete_scheme": None,
 }
 
 # The plate images and, where appropriate, movies are stored in the following folder structure:
@@ -180,6 +185,17 @@ def fetch_series(conn: sqlite3.Connection) -> list[dict[str, Any]]:
 def fetch_investigations(conn: sqlite3.Connection) -> list[dict[str, Any]]:
     """Return investigations formatted for use in the PLATE form."""
     return fetch_lookup(conn, QUERIES["fetch_investigations"])
+
+
+def fetch_scheme_list(conn: sqlite3.Connection) -> list[dict[str, Any]]:
+    """Return a compact list of schemes for browsing and selection."""
+    return fetch_lookup(conn, QUERIES["fetch_scheme_list"])
+
+
+def fetch_scheme(conn: sqlite3.Connection, scheme_id: int) -> dict[str, Any] | None:
+    """Fetch a single SCHEME row for editing."""
+    row = conn.execute(QUERIES["fetch_scheme"], (scheme_id,)).fetchone()
+    return dict(row) if row else None
 
 
 # -----------------------------------------------------------------------------
@@ -726,6 +742,37 @@ def delete_location(conn: sqlite3.Connection, location_id: int) -> None:
     conn.commit()
 
 
+def insert_scheme(conn: sqlite3.Connection, values: dict[str, Any]) -> None:
+    """Insert a new SCHEME record."""
+    conn.execute(
+        QUERIES["insert_scheme"],
+        (
+            values["Name"],
+            values["Code"],
+        ),
+    )
+    conn.commit()
+
+
+def update_scheme(conn: sqlite3.Connection, scheme_id: int, values: dict[str, Any]) -> None:
+    """Update an existing SCHEME record."""
+    conn.execute(
+        QUERIES["update_scheme"],
+        (
+            values["Name"],
+            values["Code"],
+            scheme_id,
+        ),
+    )
+    conn.commit()
+
+
+def delete_scheme(conn: sqlite3.Connection, scheme_id: int) -> None:
+    """Delete a SCHEME record."""
+    conn.execute(QUERIES["delete_scheme"], (scheme_id,))
+    conn.commit()
+
+
 # -----------------------------------------------------------------------------
 # Datasette links
 # -----------------------------------------------------------------------------
@@ -751,6 +798,12 @@ def datasette_location_url(base_url: str, db_file: Path, location_id: int) -> st
     """Build the Datasette URL for a LOCATION record."""
     db_name = db_file.stem
     return f"{base_url.rstrip('/')}/{db_name}/LOCATION/{location_id}"
+
+
+def datasette_scheme_url(base_url: str, db_file: Path, scheme_id: int) -> str:
+    """Build the Datasette URL for a SCHEME record."""
+    db_name = db_file.stem
+    return f"{base_url.rstrip('/')}/{db_name}/SCHEME/{scheme_id}"
 
 
 # -----------------------------------------------------------------------------
@@ -1249,6 +1302,98 @@ def render_location_form(
         st.error(f"Could not save location: {exc}")
 
 
+def render_scheme_form(
+    conn: sqlite3.Connection,
+    mode: str,
+    db_file: Path,
+    datasette_url: str,
+    scheme: dict[str, Any] | None = None,
+) -> None:
+    """Render the add/edit form for SCHEME records."""
+    scheme = scheme or {}
+    scheme_id = int(scheme["Id"]) if scheme.get("Id") is not None else None
+    key_base = form_key_base("scheme", mode, scheme_id)
+
+    with st.form(
+        f"{mode}_scheme_form_{scheme_id if scheme_id is not None else 'new'}",
+        clear_on_submit=(mode == "add"),
+    ):
+        name = st.text_input(
+            "Name *",
+            value=scheme.get("Name") or "",
+            key=f"{key_base}_name",
+        )
+
+        code = st.text_input(
+            "Code *",
+            value=scheme.get("Code") or "",
+            key=f"{key_base}_code",
+        )
+
+        submitted = st.form_submit_button(
+            "Add scheme" if mode == "add" else "Save changes",
+            type="primary",
+        )
+
+    if mode == "edit" and scheme.get("Id") is not None:
+        scheme_id = int(scheme["Id"])
+
+        st.markdown(
+            f"[View in Datasette]({datasette_scheme_url(datasette_url, db_file, scheme_id)})"
+        )
+
+        confirm_delete = st.checkbox(
+            "Confirm delete of this scheme",
+            key=f"confirm_delete_scheme_{scheme_id}",
+        )
+
+        if st.button(
+            "Delete scheme",
+            type="secondary",
+            key=f"delete_scheme_{scheme_id}",
+        ):
+            if not confirm_delete:
+                st.error("Tick the confirmation box before deleting.")
+            else:
+                try:
+                    delete_scheme(conn, scheme_id)
+                    st.success("Scheme deleted.")
+                    st.rerun()
+                except sqlite3.IntegrityError as exc:
+                    st.error(f"Could not delete scheme: {exc}")
+
+    if not submitted:
+        return
+
+    errors: list[str] = []
+    if not name.strip():
+        errors.append("Name is required.")
+    if not code.strip():
+        errors.append("Code is required.")
+
+    if errors:
+        for error in errors:
+            st.error(error)
+        return
+
+    payload = {
+        "Name": name.strip(),
+        "Code": code.strip(),
+    }
+
+    try:
+        if mode == "add":
+            insert_scheme(conn, payload)
+            st.success("Scheme added.")
+        else:
+            assert scheme.get("Id") is not None
+            update_scheme(conn, int(scheme["Id"]), payload)
+            st.success("Scheme updated.")
+        st.rerun()
+    except sqlite3.IntegrityError as exc:
+        st.error(f"Could not save scheme: {exc}")
+
+
 # -----------------------------------------------------------------------------
 # Main UI
 # -----------------------------------------------------------------------------
@@ -1272,9 +1417,10 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     """Run the Streamlit application."""
-    st.set_page_config(page_title="Plate Library", layout="wide")
-    st.title("Plate Library")
-    st.caption("Simple local maintenance UI for the PLATE, INVESTIGATION and LOCATION tables")
+    title = f"{PROGRAM_NAME} {PROGRAM_VERSION}"
+    st.set_page_config(page_title=title, layout="wide")
+    st.title(title)
+    st.caption(PROGRAM_DESCRIPTION)
 
     args = parse_args()
 
@@ -1307,13 +1453,18 @@ def main() -> None:
             if not table_exists(conn, "LOCATION"):
                 st.error("This database does not contain a LOCATION table.")
                 return
-            
+
+            if not table_exists(conn, "SCHEME"):
+                st.error("This database does not contain a SCHEME table.")
+                return
+
             load_sql_queries()
 
-            top_plate_tab, top_investigation_tab, top_location_tab = st.tabs([
+            top_plate_tab, top_investigation_tab, top_location_tab, top_scheme_tab = st.tabs([
                 "Plates",
                 "Investigations",
                 "Locations",
+                "Schemes",
             ])
 
             with top_plate_tab:
@@ -1377,6 +1528,29 @@ def main() -> None:
                     option_label_builder=lambda row: row["Name"]
                     if not row["Grid_Reference"]
                     else f'{row["Name"]} | {row["Grid_Reference"]}',
+                )
+
+            with top_scheme_tab:
+                render_maintenance_section(
+                    conn=conn,
+                    db_file=db_file,
+                    datasette_url=datasette_url,
+                    entity_name="scheme",
+                    add_title="Add scheme",
+                    edit_title="Edit scheme",
+                    browse_title="Browse",
+                    fetch_list=fetch_scheme_list,
+                    fetch_record=fetch_scheme,
+                    render_form=render_scheme_form,
+                    edit_select_label="Choose a scheme to edit",
+                    edit_select_key="scheme_edit_select",
+                    search_key="scheme_search",
+                    search_label="Search schemes",
+                    option_label_builder=lambda row: (
+                        f'{row["Code"]} | {row["Title"]}'
+                        if row.get("Title")
+                        else row["Code"]
+                    ),
                 )
 
     except sqlite3.Error as exc:
