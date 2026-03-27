@@ -35,6 +35,7 @@ from plate_preview import *
 from ui_helpers import *
 from species_sql import *
 from series_sql import *
+from scheme_sql import *
 
 PROGRAM_NAME = "Microscopy Plate Library Maintenance UI"
 PROGRAM_VERSION = "1.6.0"
@@ -79,17 +80,6 @@ def fetch_series(conn: sqlite3.Connection) -> list[dict[str, Any]]:
 def fetch_investigations(conn: sqlite3.Connection) -> list[dict[str, Any]]:
     """Return investigations formatted for use in the PLATE form."""
     return fetch_lookup(conn, QUERIES["fetch_investigations"]["sql"])
-
-
-def fetch_scheme_list(conn: sqlite3.Connection) -> list[dict[str, Any]]:
-    """Return a compact list of schemes for browsing and selection."""
-    return fetch_lookup(conn, QUERIES["fetch_scheme_list"]["sql"])
-
-
-def fetch_scheme(conn: sqlite3.Connection, scheme_id: int) -> dict[str, Any] | None:
-    """Fetch a single SCHEME row for editing."""
-    row = conn.execute(QUERIES["fetch_scheme"]["sql"], (scheme_id,)).fetchone()
-    return dict(row) if row else None
 
 
 def fetch_plate_list(conn: sqlite3.Connection) -> list[dict[str, Any]]:
@@ -243,38 +233,6 @@ def delete_location(conn: sqlite3.Connection, location_id: int) -> None:
     """Delete a LOCATION record."""
     conn.execute(QUERIES["delete_location"]["sql"], (location_id,))
     conn.commit()
-
-
-def insert_scheme(conn: sqlite3.Connection, values: dict[str, Any]) -> None:
-    """Insert a new SCHEME record."""
-    conn.execute(
-        QUERIES["insert_scheme"]["sql"],
-        (
-            values["Name"],
-            values["Code"],
-        ),
-    )
-    conn.commit()
-
-
-def update_scheme(conn: sqlite3.Connection, scheme_id: int, values: dict[str, Any]) -> None:
-    """Update an existing SCHEME record."""
-    conn.execute(
-        QUERIES["update_scheme"]["sql"],
-        (
-            values["Name"],
-            values["Code"],
-            scheme_id,
-        ),
-    )
-    conn.commit()
-
-
-def delete_scheme(conn: sqlite3.Connection, scheme_id: int) -> None:
-    """Delete a SCHEME record."""
-    conn.execute(QUERIES["delete_scheme"]["sql"], (scheme_id,))
-    conn.commit()
-
 
 # -----------------------------------------------------------------------------
 # Datasette links
