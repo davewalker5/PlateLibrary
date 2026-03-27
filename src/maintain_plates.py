@@ -33,6 +33,7 @@ from sqlite_helpers import *
 from plate_numbering import *
 from plate_preview import *
 from ui_helpers import *
+from species_sql import *
 
 PROGRAM_NAME = "Microscopy Plate Library Maintenance UI"
 PROGRAM_VERSION = "1.6.0"
@@ -49,11 +50,6 @@ PROJECT_FOLDER = os.path.dirname(os.path.dirname(__file__))
 # -----------------------------------------------------------------------------
 # Lookup queries used by the PLATE, INVESTIGATION and LOCATION forms
 # -----------------------------------------------------------------------------
-def fetch_species(conn: sqlite3.Connection) -> list[dict[str, Any]]:
-    """Return species records formatted for a select box."""
-    return fetch_lookup(conn, QUERIES["fetch_species"]["sql"])
-
-
 def fetch_objectives(conn: sqlite3.Connection) -> list[dict[str, Any]]:
     """Return microscope objectives formatted for display in the UI."""
     return fetch_lookup(conn, QUERIES["fetch_objectives"]["sql"])
@@ -106,19 +102,6 @@ def fetch_series_record(conn: sqlite3.Connection, series_id: int) -> dict[str, A
     return dict(row) if row else None
 
 
-def fetch_species_list(conn: sqlite3.Connection) -> list[dict[str, Any]]:
-    """Return a compact list of species for browsing and selection."""
-    return fetch_lookup(conn, QUERIES["fetch_species_list"]["sql"])
-
-
-def fetch_species_record(conn: sqlite3.Connection, species_id: int) -> dict[str, Any] | None:
-    """Fetch a single SPECIES row for editing."""
-    row = conn.execute(QUERIES["fetch_species_record"]["sql"], (species_id,)).fetchone()
-    return dict(row) if row else None
-
-# -----------------------------------------------------------------------------
-# Record queries for browsing and editing
-# -----------------------------------------------------------------------------
 def fetch_plate_list(conn: sqlite3.Connection) -> list[dict[str, Any]]:
     """Return a compact list of plates for browsing and selection."""
     return fetch_lookup(conn, QUERIES["fetch_plate_list"]["sql"])
@@ -337,36 +320,6 @@ def delete_series(conn: sqlite3.Connection, series_id: int) -> None:
     conn.execute(QUERIES["delete_series"]["sql"], (series_id,))
     conn.commit()
 
-
-def insert_species(conn: sqlite3.Connection, values: dict[str, Any]) -> None:
-    """Insert a new SPECIES record."""
-    conn.execute(
-        QUERIES["insert_species"]["sql"],
-        (
-            values["Scientific_Name"],
-            values["Common_Name"],
-        ),
-    )
-    conn.commit()
-
-
-def update_species(conn: sqlite3.Connection, species_id: int, values: dict[str, Any]) -> None:
-    """Update an existing SPECIES record."""
-    conn.execute(
-        QUERIES["update_species"]["sql"],
-        (
-            values["Scientific_Name"],
-            values["Common_Name"],
-            species_id,
-        ),
-    )
-    conn.commit()
-
-
-def delete_species(conn: sqlite3.Connection, species_id: int) -> None:
-    """Delete a SPECIES record."""
-    conn.execute(QUERIES["delete_species"]["sql"], (species_id,))
-    conn.commit()
 
 # -----------------------------------------------------------------------------
 # Datasette links
