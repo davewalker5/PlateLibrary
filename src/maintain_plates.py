@@ -34,6 +34,7 @@ from plate_numbering import *
 from plate_preview import *
 from ui_helpers import *
 from species_sql import *
+from series_sql import *
 
 PROGRAM_NAME = "Microscopy Plate Library Maintenance UI"
 PROGRAM_VERSION = "1.6.0"
@@ -88,17 +89,6 @@ def fetch_scheme_list(conn: sqlite3.Connection) -> list[dict[str, Any]]:
 def fetch_scheme(conn: sqlite3.Connection, scheme_id: int) -> dict[str, Any] | None:
     """Fetch a single SCHEME row for editing."""
     row = conn.execute(QUERIES["fetch_scheme"]["sql"], (scheme_id,)).fetchone()
-    return dict(row) if row else None
-
-
-def fetch_series_list(conn: sqlite3.Connection) -> list[dict[str, Any]]:
-    """Return a compact list of series for browsing and selection."""
-    return fetch_lookup(conn, QUERIES["fetch_series_list"]["sql"])
-
-
-def fetch_series_record(conn: sqlite3.Connection, series_id: int) -> dict[str, Any] | None:
-    """Fetch a single SERIES row for editing."""
-    row = conn.execute(QUERIES["fetch_series_record"]["sql"], (series_id,)).fetchone()
     return dict(row) if row else None
 
 
@@ -283,41 +273,6 @@ def update_scheme(conn: sqlite3.Connection, scheme_id: int, values: dict[str, An
 def delete_scheme(conn: sqlite3.Connection, scheme_id: int) -> None:
     """Delete a SCHEME record."""
     conn.execute(QUERIES["delete_scheme"]["sql"], (scheme_id,))
-    conn.commit()
-
-
-def insert_series(conn: sqlite3.Connection, values: dict[str, Any]) -> None:
-    """Insert a new SERIES record."""
-    conn.execute(
-        QUERIES["insert_series"]["sql"],
-        (
-            values["Name"],
-            values["Scheme_Id"],
-            values["Code"],
-            values["Plate_Format"],
-        ),
-    )
-    conn.commit()
-
-
-def update_series(conn: sqlite3.Connection, series_id: int, values: dict[str, Any]) -> None:
-    """Update an existing SERIES record."""
-    conn.execute(
-        QUERIES["update_series"]["sql"],
-        (
-            values["Name"],
-            values["Scheme_Id"],
-            values["Code"],
-            values["Plate_Format"],
-            series_id,
-        ),
-    )
-    conn.commit()
-
-
-def delete_series(conn: sqlite3.Connection, series_id: int) -> None:
-    """Delete a SERIES record."""
-    conn.execute(QUERIES["delete_series"]["sql"], (series_id,))
     conn.commit()
 
 
