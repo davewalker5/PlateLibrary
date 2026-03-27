@@ -64,6 +64,12 @@ QUERIES = {
     "insert_species": { "section": "species" },
     "update_species": { "section": "species" },
     "delete_species": { "section": "species" },
+    "fetch_microscopes": { "section": "microscope" },
+    "fetch_microscope_list": { "section": "microscope" },
+    "fetch_microscope_record": { "section": "microscope" },
+    "insert_microscope": { "section": "microscope" },
+    "update_microscope": { "section": "microscope" },
+    "delete_microscope": { "section": "microscope" },
 }
 
 # -----------------------------------------------------------------------------
