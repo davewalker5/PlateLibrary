@@ -1,6 +1,6 @@
 import sqlite3
 from typing import Any
-from sqlite_helpers import fetch_lookup, QUERIES
+from plate_library.sql.sqlite_helpers import fetch_lookup, QUERIES
 
 # -----------------------------------------------------------------------------
 # Data retrieval queries

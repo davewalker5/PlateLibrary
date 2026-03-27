@@ -5,20 +5,20 @@ import sqlite3
 import streamlit as st
 from typing import Any
 from pathlib import Path
-from data_conversion_helpers import make_nullable_options, form_key_base, parse_db_date, option_index, selected_fk
+from plate_library.utils.data_conversion_helpers import make_nullable_options, form_key_base, parse_db_date, option_index, selected_fk
 
 # -----------------------------------------------------------------------------
 # Entity specific imports
 # -----------------------------------------------------------------------------
-from species_sql import fetch_species, fetch_species_list
-from objective_sql import fetch_objectives
-from camera_sql import fetch_cameras
-from investigation_sql import fetch_investigations
-from stain_sql import fetch_stains
-from location_sql import fetch_locations
-from plate_numbering import suggest_next_plate_for_investigation
-from plate_preview import render_plate_media_preview
-from plate_sql import delete_plate, insert_plate, update_plate
+from plate_library.sql.species_sql import fetch_species, fetch_species_list
+from plate_library.sql.objective_sql import fetch_objectives
+from plate_library.sql.camera_sql import fetch_cameras
+from plate_library.sql.investigation_sql import fetch_investigations
+from plate_library.sql.stain_sql import fetch_stains
+from plate_library.sql.location_sql import fetch_locations
+from plate_library.utils.plate_numbering import suggest_next_plate_for_investigation
+from plate_library.ui.plate_preview import render_plate_media_preview
+from plate_library.sql.plate_sql import delete_plate, insert_plate, update_plate
 
 # -----------------------------------------------------------------------------
 # Datasette links

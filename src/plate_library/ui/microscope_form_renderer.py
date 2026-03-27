@@ -5,12 +5,12 @@ import sqlite3
 import streamlit as st
 from typing import Any
 from pathlib import Path
-from data_conversion_helpers import form_key_base
+from plate_library.utils.data_conversion_helpers import form_key_base
 
 # -----------------------------------------------------------------------------
 # Entity specific imports
 # -----------------------------------------------------------------------------
-from microscope_sql import delete_microscope, insert_microscope, update_microscope
+from plate_library.sql.microscope_sql import delete_microscope, insert_microscope, update_microscope
 
 
 # -----------------------------------------------------------------------------

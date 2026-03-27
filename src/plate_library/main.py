@@ -30,37 +30,37 @@ import streamlit as st
 # -----------------------------------------------------------------------------
 # Database query helpers
 # -----------------------------------------------------------------------------
-from sqlite_helpers import database_path, get_connection, confirm_schema, load_sql_queries
-from scheme_sql import fetch_scheme, fetch_scheme_list
-from series_sql import fetch_series_list, fetch_series_record
-from investigation_sql import fetch_investigation, fetch_investigation_list
-from plate_sql import fetch_plate, fetch_plate_list
-from species_sql import fetch_species_record, fetch_species_list
-from location_sql import fetch_location, fetch_location_list
-from camera_sql import fetch_camera_list, fetch_camera_record
-from microscope_sql import fetch_microscope_list, fetch_microscope_record
-from objective_sql import fetch_objective_list, fetch_objective_record
-from stain_sql import fetch_stain_list, fetch_stain_record
+from plate_library.sql.sqlite_helpers import database_path, get_connection, confirm_schema, load_sql_queries
+from plate_library.sql.scheme_sql import fetch_scheme, fetch_scheme_list
+from plate_library.sql.series_sql import fetch_series_list, fetch_series_record
+from plate_library.sql.investigation_sql import fetch_investigation, fetch_investigation_list
+from plate_library.sql.plate_sql import fetch_plate, fetch_plate_list
+from plate_library.sql.species_sql import fetch_species_record, fetch_species_list
+from plate_library.sql.location_sql import fetch_location, fetch_location_list
+from plate_library.sql.camera_sql import fetch_camera_list, fetch_camera_record
+from plate_library.sql.microscope_sql import fetch_microscope_list, fetch_microscope_record
+from plate_library.sql.objective_sql import fetch_objective_list, fetch_objective_record
+from plate_library.sql.stain_sql import fetch_stain_list, fetch_stain_record
 
 
 # -----------------------------------------------------------------------------
 # Form rendering helpers
 # -----------------------------------------------------------------------------
-from ui_helpers import render_maintenance_section
-from plate_form_renderer import render_plate_form
-from investigation_form_renderer import render_investigation_form
-from location_form_renderer import render_location_form
-from scheme_form_renderer import render_scheme_form
-from series_form_renderer import render_series_form
-from species_form_renderer import render_species_form
-from camera_form_renderer import render_camera_form
-from microscope_form_renderer import render_microscope_form
-from objective_form_renderer import render_objective_form
-from stain_form_renderer import render_stain_form
+from plate_library.ui.ui_helpers import render_maintenance_section
+from plate_library.ui.plate_form_renderer import render_plate_form
+from plate_library.ui.investigation_form_renderer import render_investigation_form
+from plate_library.ui.location_form_renderer import render_location_form
+from plate_library.ui.scheme_form_renderer import render_scheme_form
+from plate_library.ui.series_form_renderer import render_series_form
+from plate_library.ui.species_form_renderer import render_species_form
+from plate_library.ui.camera_form_renderer import render_camera_form
+from plate_library.ui.microscope_form_renderer import render_microscope_form
+from plate_library.ui.objective_form_renderer import render_objective_form
+from plate_library.ui.stain_form_renderer import render_stain_form
 
 
 PROGRAM_NAME = "Microscopy Plate Library Maintenance UI"
-PROGRAM_VERSION = "1.6.0"
+PROGRAM_VERSION = "1.7.0"
 PROGRAM_DESCRIPTION = "Maintenance UI for a simple microscopy plate library"
 
 # Default location for the local Datasette instance and database name
@@ -68,7 +68,7 @@ DEFAULT_DATASETTE_URL = "http://127.0.0.1:8001"
 DB_NAME = "plate_library.db"
 
 # Root folder of the project
-PROJECT_FOLDER = os.path.dirname(os.path.dirname(__file__))
+PROJECT_FOLDER = Path(__file__).parent.parent.parent
 
 # -----------------------------------------------------------------------------
 # Main UI
@@ -348,7 +348,3 @@ def main() -> None:
 
     except sqlite3.Error as exc:
         st.error(f"SQLite error: {exc}")
-
-
-if __name__ == "__main__":
-    main()
