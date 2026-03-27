@@ -40,6 +40,7 @@ from objective_sql import *
 from camera_sql import *
 from stain_sql import *
 from location_sql import *
+from investigation_sql import *
 
 PROGRAM_NAME = "Microscopy Plate Library Maintenance UI"
 PROGRAM_VERSION = "1.6.0"
@@ -56,10 +57,6 @@ PROJECT_FOLDER = os.path.dirname(os.path.dirname(__file__))
 # -----------------------------------------------------------------------------
 # Lookup queries used by the PLATE, INVESTIGATION and LOCATION forms
 # -----------------------------------------------------------------------------
-def fetch_investigations(conn: sqlite3.Connection) -> list[dict[str, Any]]:
-    """Return investigations formatted for use in the PLATE form."""
-    return fetch_lookup(conn, QUERIES["fetch_investigations"]["sql"])
-
 
 def fetch_plate_list(conn: sqlite3.Connection) -> list[dict[str, Any]]:
     """Return a compact list of plates for browsing and selection."""
@@ -76,13 +73,6 @@ def fetch_investigation_list(conn: sqlite3.Connection) -> list[dict[str, Any]]:
     """Return a compact list of investigations for browsing and selection."""
     return fetch_lookup(conn, QUERIES["fetch_investigation_list"]["sql"])
 
-
-def fetch_investigation(
-    conn: sqlite3.Connection, investigation_id: int
-) -> dict[str, Any] | None:
-    """Fetch a single INVESTIGATION row for editing."""
-    row = conn.execute(QUERIES["fetch_investigation"]["sql"], (investigation_id,)).fetchone()
-    return dict(row) if row else None
 
 
 # -----------------------------------------------------------------------------
@@ -138,35 +128,6 @@ def delete_plate(conn: sqlite3.Connection, plate_id: int) -> None:
     conn.execute(QUERIES["delete_plate"]["sql"], (plate_id,))
     conn.commit()
 
-
-def insert_investigation(conn: sqlite3.Connection, values: dict[str, Any]) -> None:
-    """Insert a new INVESTIGATION record."""
-    conn.execute(
-       QUERIES["insert_investigation"]["sql"],
-        (
-            values["Reference"],
-            values["Title"],
-            values["Series_Id"],
-        ),
-    )
-    conn.commit()
-
-
-def update_investigation(
-    conn: sqlite3.Connection,
-    investigation_id: int,
-    values: dict[str, Any],
-) -> None:
-    """Update an existing INVESTIGATION record."""
-    conn.execute(QUERIES["update_investigation"]["sql"],
-        (
-            values["Reference"],
-            values["Title"],
-            values["Series_Id"],
-            investigation_id,
-        ),
-    )
-    conn.commit()
 
 
 # -----------------------------------------------------------------------------
