@@ -39,6 +39,7 @@ from species_sql import fetch_species_record, fetch_species_list
 from location_sql import fetch_location, fetch_location_list
 from camera_sql import fetch_camera_list, fetch_camera_record
 from microscope_sql import fetch_microscope_list, fetch_microscope_record
+from objective_sql import fetch_objective_list, fetch_objective_record
 
 
 # -----------------------------------------------------------------------------
@@ -53,6 +54,7 @@ from series_form_renderer import render_series_form
 from species_form_renderer import render_species_form
 from camera_form_renderer import render_camera_form
 from microscope_form_renderer import render_microscope_form
+from objective_form_renderer import render_objective_form
 
 
 PROGRAM_NAME = "Microscopy Plate Library Maintenance UI"
@@ -119,7 +121,7 @@ def main() -> None:
 
             load_sql_queries(PROJECT_FOLDER)
 
-            top_plate_tab, top_investigation_tab, top_location_tab, top_scheme_tab, top_series_tab, top_species_tab, top_camera_tab, top_microscope_tab = st.tabs([
+            top_plate_tab, top_investigation_tab, top_location_tab, top_scheme_tab, top_series_tab, top_species_tab, top_camera_tab, top_microscope_tab, top_objective_tab = st.tabs([
                 "Plates",
                 "Investigations",
                 "Locations",
@@ -128,6 +130,7 @@ def main() -> None:
                 "Species",
                 "Cameras",
                 "Microscopes",
+                "Objectives"
             ])
 
             with top_plate_tab:
@@ -297,6 +300,27 @@ def main() -> None:
                     search_label="Search microscopes",
                     option_label_builder=lambda row: (
                         f'{row["Manufacturer"]} | {row["Description"]} | {row["Manufactured"]} | {row["Serial_Number"]}'
+                    ),
+                )
+
+            with top_objective_tab:
+                render_maintenance_section(
+                    conn=conn,
+                    db_file=db_file,
+                    datasette_url=datasette_url,
+                    entity_name="objective",
+                    add_title="Add objective",
+                    edit_title="Edit objective",
+                    browse_title="Browse",
+                    fetch_list=fetch_objective_list,
+                    fetch_record=fetch_objective_record,
+                    render_form=render_objective_form,
+                    edit_select_label="Choose an objective to edit",
+                    edit_select_key="objective_edit_select",
+                    search_key="objective_search",
+                    search_label="Search objectives",
+                    option_label_builder=lambda row: (
+                        f'{row["Microscope_Description"]} | {row["Description"]} | {row["Magnification"]}x'
                     ),
                 )
 

@@ -70,6 +70,11 @@ QUERIES = {
     "insert_microscope": { "section": "microscope" },
     "update_microscope": { "section": "microscope" },
     "delete_microscope": { "section": "microscope" },
+    "fetch_objective_list": { "section": "objective" },
+    "fetch_objective_record": { "section": "objective" },
+    "insert_objective": { "section": "objective" },
+    "update_objective": { "section": "objective" },
+    "delete_objective": { "section": "objective" },
 }
 
 # -----------------------------------------------------------------------------
