@@ -39,6 +39,7 @@ from series_sql import *
 from objective_sql import *
 from camera_sql import *
 from stain_sql import *
+from location_sql import *
 
 PROGRAM_NAME = "Microscopy Plate Library Maintenance UI"
 PROGRAM_VERSION = "1.6.0"
@@ -55,12 +56,6 @@ PROJECT_FOLDER = os.path.dirname(os.path.dirname(__file__))
 # -----------------------------------------------------------------------------
 # Lookup queries used by the PLATE, INVESTIGATION and LOCATION forms
 # -----------------------------------------------------------------------------
-
-def fetch_locations(conn: sqlite3.Connection) -> list[dict[str, Any]]:
-    """Return locations formatted for display in the UI."""
-    return fetch_lookup(conn, QUERIES["fetch_locations"]["sql"])
-
-
 def fetch_investigations(conn: sqlite3.Connection) -> list[dict[str, Any]]:
     """Return investigations formatted for use in the PLATE form."""
     return fetch_lookup(conn, QUERIES["fetch_investigations"]["sql"])
@@ -87,17 +82,6 @@ def fetch_investigation(
 ) -> dict[str, Any] | None:
     """Fetch a single INVESTIGATION row for editing."""
     row = conn.execute(QUERIES["fetch_investigation"]["sql"], (investigation_id,)).fetchone()
-    return dict(row) if row else None
-
-
-def fetch_location_list(conn: sqlite3.Connection) -> list[dict[str, Any]]:
-    """Return a compact list of locations for browsing and selection."""
-    return fetch_lookup(conn, QUERIES["fetch_location_list"]["sql"])
-
-
-def fetch_location(conn: sqlite3.Connection, location_id: int) -> dict[str, Any] | None:
-    """Fetch a single LOCATION row for editing."""
-    row = conn.execute(QUERIES["fetch_location"]["sql"], (location_id,)).fetchone()
     return dict(row) if row else None
 
 
@@ -184,39 +168,6 @@ def update_investigation(
     )
     conn.commit()
 
-
-def insert_location(conn: sqlite3.Connection, values: dict[str, Any]) -> None:
-    """Insert a new LOCATION record."""
-    conn.execute(QUERIES["insert_location"]["sql"],
-        (
-            values["Name"],
-            values["Grid_Reference"],
-            values["Latitude"],
-            values["Longitude"],
-        ),
-    )
-    conn.commit()
-
-
-def update_location(conn: sqlite3.Connection, location_id: int, values: dict[str, Any]) -> None:
-    """Update an existing LOCATION record."""
-    conn.execute(
-        QUERIES["update_location"]["sql"],
-        (
-            values["Name"],
-            values["Grid_Reference"],
-            values["Latitude"],
-            values["Longitude"],
-            location_id,
-        ),
-    )
-    conn.commit()
-
-
-def delete_location(conn: sqlite3.Connection, location_id: int) -> None:
-    """Delete a LOCATION record."""
-    conn.execute(QUERIES["delete_location"]["sql"], (location_id,))
-    conn.commit()
 
 # -----------------------------------------------------------------------------
 # Datasette links
