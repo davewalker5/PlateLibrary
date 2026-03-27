@@ -5,13 +5,13 @@ import sqlite3
 import streamlit as st
 from typing import Any
 from pathlib import Path
-from data_conversion_helpers import make_nullable_options, form_key_base, parse_db_date, option_index, selected_fk
+from plate_library.utils.data_conversion_helpers import make_nullable_options, form_key_base, parse_db_date, option_index, selected_fk
 
 # -----------------------------------------------------------------------------
 # Entity specific imports
 # -----------------------------------------------------------------------------
-from series_sql import delete_series, insert_series, update_series
-from scheme_sql import fetch_scheme_list
+from plate_library.sql.series_sql import delete_series, insert_series, update_series
+from plate_library.sql.scheme_sql import fetch_scheme_list
 
 
 # -----------------------------------------------------------------------------

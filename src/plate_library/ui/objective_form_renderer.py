@@ -5,13 +5,13 @@ import sqlite3
 import streamlit as st
 from typing import Any
 from pathlib import Path
-from data_conversion_helpers import make_nullable_options, form_key_base, option_index, selected_fk
+from plate_library.utils.data_conversion_helpers import make_nullable_options, form_key_base, option_index, selected_fk
 
 # -----------------------------------------------------------------------------
 # Entity specific imports
 # -----------------------------------------------------------------------------
-from objective_sql import delete_objective, insert_objective, update_objective
-from microscope_sql import fetch_microscope_list
+from plate_library.sql.objective_sql import delete_objective, insert_objective, update_objective
+from plate_library.sql.microscope_sql import fetch_microscope_list
 
 
 # -----------------------------------------------------------------------------

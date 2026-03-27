@@ -1,6 +1,6 @@
 import re
 import sqlite3
-from sqlite_helpers import QUERIES
+from plate_library.sql.sqlite_helpers import QUERIES
 
 # -----------------------------------------------------------------------------
 # Plate number suggestion helpers

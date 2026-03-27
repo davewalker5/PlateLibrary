@@ -3,7 +3,7 @@ from datetime import date
 from typing import Any
 import os
 import streamlit as st
-from data_conversion_helpers import parse_db_date
+from plate_library.utils.data_conversion_helpers import parse_db_date
 
 
 # The plate images and, where appropriate, movies are stored in the following folder structure:
