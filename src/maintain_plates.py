@@ -31,19 +31,20 @@ import streamlit as st
 from scheme_sql import *
 from data_conversion_helpers import *
 from sqlite_helpers import *
-from plate_numbering import *
+# from plate_numbering import *
 # from plate_preview import *
 from ui_helpers import *
 from species_sql import *
 from series_sql import *
-from objective_sql import *
-from camera_sql import *
-from stain_sql import *
+# from objective_sql import *
+# from camera_sql import *
+# from stain_sql import *
 from location_sql import *
 from investigation_sql import *
 from plate_sql import *
 
 from plate_form_renderer import render_plate_form
+from investigation_form_renderer import render_investigation_form
 
 
 PROGRAM_NAME = "Microscopy Plate Library Maintenance UI"
@@ -60,13 +61,6 @@ PROJECT_FOLDER = os.path.dirname(os.path.dirname(__file__))
 # -----------------------------------------------------------------------------
 # Datasette links
 # -----------------------------------------------------------------------------
-
-def datasette_investigation_url(
-    base_url: str, db_file: Path, investigation_id: int
-) -> str:
-    """Build the Datasette URL for an INVESTIGATION record."""
-    db_name = db_file.stem
-    return f"{base_url.rstrip('/')}/{db_name}/INVESTIGATION/{investigation_id}"
 
 
 def datasette_location_url(base_url: str, db_file: Path, location_id: int) -> str:
@@ -95,86 +89,6 @@ def datasette_species_url(base_url: str, db_file: Path, species_id: int) -> str:
 # -----------------------------------------------------------------------------
 # Streamlit form renderers
 # -----------------------------------------------------------------------------
-def render_investigation_form(
-    conn: sqlite3.Connection,
-    mode: str,
-    db_file: Path,
-    datasette_url: str,
-    investigation: dict[str, Any] | None = None,
-) -> None:
-    """Render the add/edit form for INVESTIGATION records."""
-    series_options = fetch_series(conn)
-
-    if not series_options:
-        st.error("SERIES must contain data before you can add or edit investigations.")
-        return
-
-    investigation = investigation or {}
-    investigation_id = int(investigation["Id"]) if investigation.get("Id") is not None else None
-    key_base = form_key_base("investigation", mode, investigation_id)
-
-    if mode == "add":
-        series_form_options = make_nullable_options(series_options, placeholder="— Select series —")
-        default_series_id = None
-    else:
-        series_form_options = series_options
-        default_series_id = investigation.get("Series_Id")
-
-    with st.form(f"{mode}_investigation_form_{investigation_id if investigation_id is not None else 'new'}", clear_on_submit=(mode == "add")):
-        reference = st.text_input("Reference", value=investigation.get("Reference") or "", key=f"{key_base}_reference")
-        title = st.text_input("Title", value=investigation.get("Title") or "", key=f"{key_base}_title")
-        series = st.selectbox(
-            "Series *",
-            options=series_form_options,
-            index=option_index(series_form_options, default_series_id),
-            format_func=lambda x: x["Label"],
-            key=f"{key_base}_series",
-        )
-
-        submitted = st.form_submit_button(
-            "Add investigation" if mode == "add" else "Save changes",
-            type="primary",
-        )
-
-    if mode == "edit" and investigation.get("Id") is not None:
-        st.markdown(
-            f"[View in Datasette]({datasette_investigation_url(datasette_url, db_file, int(investigation['Id']))})"
-        )
-
-    if not submitted:
-        return
-
-    errors: list[str] = []
-    if not reference.strip():
-        errors.append("Reference is required.")
-    if not title.strip():
-        errors.append("Title is required.")
-    if selected_fk(series) is None:
-        errors.append("Series is required.")
-
-    if errors:
-        for error in errors:
-            st.error(error)
-        return
-
-    payload = {
-        "Reference": reference.strip(),
-        "Title": title.strip(),
-        "Series_Id": selected_fk(series),
-    }
-
-    try:
-        if mode == "add":
-            insert_investigation(conn, payload)
-            st.success("Investigation added.")
-        else:
-            assert investigation.get("Id") is not None
-            update_investigation(conn, int(investigation["Id"]), payload)
-            st.success("Investigation updated.")
-        st.rerun()
-    except sqlite3.IntegrityError as exc:
-        st.error(f"Could not save investigation: {exc}")
-
 
 def render_location_form(
     conn: sqlite3.Connection,
