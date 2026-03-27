@@ -30,6 +30,7 @@ import re
 import streamlit as st
 
 from data_conversion_helpers import *
+from sqlite_helpers import *
 
 
 PROGRAM_NAME = "Microscopy Plate Library Maintenance UI"
@@ -42,48 +43,6 @@ DB_NAME = "plate_library.db"
 
 # Root folder of the project
 PROJECT_FOLDER = os.path.dirname(os.path.dirname(__file__))
-
-# Dictionary of SQL queries used to load, insert, update and delete data
-QUERIES = {
-    "fetch_species": { "section": "species" },
-    "fetch_species_list": { "section": "species" },
-    "fetch_species_record": { "section": "species" },
-    "fetch_objectives": { "section": "objective" },
-    "fetch_cameras": { "section": "camera" },
-    "fetch_stains": { "section": "stain" },
-    "fetch_locations": { "section": "location" },
-    "fetch_series": { "section": "series" },
-    "fetch_investigations": { "section": "investigation" },
-    "fetch_plate_list": { "section": "plate" },
-    "fetch_plate": { "section": "plate" },
-    "fetch_investigation_list": { "section": "investigation" },
-    "fetch_investigation": { "section": "investigation" },
-    "fetch_location_list": { "section": "location" },
-    "fetch_location": { "section": "location" },
-    "fetch_scheme_list": { "section": "scheme" },
-    "fetch_scheme": { "section": "scheme" },
-    "fetch_series_list": { "section": "series" },
-    "fetch_series_record": { "section": "series" },
-    "load_plate_format_for_investigation": { "section": "investigation" },
-    "load_existing_plate_references": { "section": "plate" },
-    "insert_plate": { "section": "plate" },
-    "update_plate": { "section": "plate" },
-    "delete_plate": { "section": "plate" },
-    "insert_location": { "section": "location" },
-    "update_location": { "section": "location" },
-    "delete_location": { "section": "location" },
-    "insert_investigation": { "section": "investigation" },
-    "update_investigation": { "section": "investigation" },
-    "insert_scheme": { "section": "scheme" },
-    "update_scheme": { "section": "scheme" },
-    "delete_scheme": { "section": "scheme" },
-    "insert_series": { "section": "series" },
-    "update_series": { "section": "series" },
-    "delete_series": { "section": "series" },
-    "insert_species": { "section": "species" },
-    "update_species": { "section": "species" },
-    "delete_species": { "section": "species" },
-}
 
 # The plate images and, where appropriate, movies are stored in the following folder structure:
 #
@@ -108,57 +67,6 @@ MONTH_ABBR = {
 }
 
 ALLOWED_MEDIA_TYPES = [".png", ".mp4"]
-
-# -----------------------------------------------------------------------------
-# SQLite helpers
-# -----------------------------------------------------------------------------
-def database_path():
-    """Return the default location for the database
-    
-    If the microscopy plate library environment variable is set, assume the database is in that
-    folder. Otherwise, assume a copy of the database in the data folder of the project.
-    """
-    db_folder = os.getenv("MICROSCOPY_PLATE_LIBRARY")
-    if not db_folder:
-        db_folder = Path(PROJECT_FOLDER) / "data"
-
-    return (Path(db_folder) / DB_NAME).absolute()
-
-
-def get_connection(db_path: str) -> sqlite3.Connection:
-    """Open a SQLite connection configured for dictionary-style row access."""
-    conn = sqlite3.connect(db_path)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA foreign_keys = ON")
-    return conn
-
-
-def table_exists(conn: sqlite3.Connection, table_name: str) -> bool:
-    """Return True if the given table or view exists in the database."""
-    row = conn.execute(
-        """
-        SELECT name
-        FROM sqlite_master
-        WHERE type IN ('table', 'view') AND name = ?
-        """,
-        (table_name,),
-    ).fetchone()
-    return row is not None
-
-
-def fetch_lookup(conn: sqlite3.Connection, sql: str) -> list[dict[str, Any]]:
-    """Execute a lookup query and return the rows as ordinary dictionaries."""
-    rows = conn.execute(sql).fetchall()
-    return [dict(row) for row in rows]
-
-
-def load_sql_queries():
-    """Load the SQL queries"""
-    for key in QUERIES.keys():
-        file_name = key + ".sql"
-        file_path = (Path(PROJECT_FOLDER) / "sql" / QUERIES[key]["section"] / file_name).resolve()
-        with open(file_path, "r") as f:
-            QUERIES[key]["sql"] = f.read()
 
 
 # -----------------------------------------------------------------------------
@@ -1676,7 +1584,7 @@ def parse_args() -> argparse.Namespace:
         description=PROGRAM_DESCRIPTION
     )
 
-    default_db_path = database_path()
+    default_db_path = database_path(PROJECT_FOLDER, DB_NAME)
     parser.add_argument("--db", default=default_db_path)
 
     return parser.parse_args()
@@ -1709,31 +1617,10 @@ def main() -> None:
 
     try:
         with closing(get_connection(str(db_file))) as conn:
-            if not table_exists(conn, "PLATE"):
-                st.error("This database does not contain a PLATE table.")
+            if not confirm_schema(conn):
                 return
 
-            if not table_exists(conn, "INVESTIGATION"):
-                st.error("This database does not contain an INVESTIGATION table.")
-                return
-
-            if not table_exists(conn, "LOCATION"):
-                st.error("This database does not contain a LOCATION table.")
-                return
-
-            if not table_exists(conn, "SCHEME"):
-                st.error("This database does not contain a SCHEME table.")
-                return
-
-            if not table_exists(conn, "SERIES"):
-                st.error("This database does not contain a SERIES table.")
-                return
-
-            if not table_exists(conn, "SPECIES"):
-                st.error("This database does not contain a SPECIES table.")
-                return
-
-            load_sql_queries()
+            load_sql_queries(PROJECT_FOLDER)
 
             top_plate_tab, top_investigation_tab, top_location_tab, top_scheme_tab, top_series_tab, top_species_tab = st.tabs([
                 "Plates",
