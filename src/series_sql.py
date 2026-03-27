@@ -5,6 +5,11 @@ from sqlite_helpers import fetch_lookup, QUERIES
 # -----------------------------------------------------------------------------
 # Data retrieval queries
 # -----------------------------------------------------------------------------
+def fetch_series(conn: sqlite3.Connection) -> list[dict[str, Any]]:
+    """Return series values formatted for investigation maintenance."""
+    return fetch_lookup(conn, QUERIES["fetch_series"]["sql"])
+
+
 def fetch_series_list(conn: sqlite3.Connection) -> list[dict[str, Any]]:
     """Return a compact list of series for browsing and selection."""
     return fetch_lookup(conn, QUERIES["fetch_series_list"]["sql"])
