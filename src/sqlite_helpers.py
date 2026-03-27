@@ -75,6 +75,11 @@ QUERIES = {
     "insert_objective": { "section": "objective" },
     "update_objective": { "section": "objective" },
     "delete_objective": { "section": "objective" },
+    "fetch_stain_list": { "section": "stain" },
+    "fetch_stain_record": { "section": "stain" },
+    "insert_stain": { "section": "stain" },
+    "update_stain": { "section": "stain" },
+    "delete_stain": { "section": "stain" },
 }
 
 # -----------------------------------------------------------------------------
