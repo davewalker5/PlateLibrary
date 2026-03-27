@@ -78,7 +78,7 @@ This assumes a Mac or Linux-based setup and should be modified if running on Win
 Open a terminal window and run the following script to start streamlit:
 
 ```bash
-streamlit run src/maintain_plates.py
+streamlit run src/main.py
 ```
 
 The script will locate the database as follows:
@@ -89,7 +89,7 @@ The script will locate the database as follows:
 Alternatively, the database file path can be specified on the command line:
 
 ```bash
-streamlit run src/maintain_plates.py -- --db path/to/database.db
+streamlit run src/main.py -- --db path/to/database.db
 ```
 
 The Streamlit-based editor is used to:
