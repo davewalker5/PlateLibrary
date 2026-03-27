@@ -56,6 +56,10 @@ QUERIES = {
     "fetch_investigation": None,
     "fetch_location_list": None,
     "fetch_location": None,
+    "fetch_scheme_list": None,
+    "fetch_scheme": None,
+    "fetch_series_list": None,
+    "fetch_series_record": None,
     "load_plate_format_for_investigation": None,
     "load_existing_plate_references": None,
     "insert_plate": None,
@@ -66,11 +70,12 @@ QUERIES = {
     "update_location": None,
     "delete_location": None,
     "insert_investigation": None,
-    "fetch_scheme_list": None,
-    "fetch_scheme": None,
     "insert_scheme": None,
     "update_scheme": None,
     "delete_scheme": None,
+    "insert_series": None,
+    "update_series": None,
+    "delete_series": None,
 }
 
 # The plate images and, where appropriate, movies are stored in the following folder structure:
@@ -197,6 +202,16 @@ def fetch_scheme(conn: sqlite3.Connection, scheme_id: int) -> dict[str, Any] | N
     row = conn.execute(QUERIES["fetch_scheme"], (scheme_id,)).fetchone()
     return dict(row) if row else None
 
+
+def fetch_series_list(conn: sqlite3.Connection) -> list[dict[str, Any]]:
+    """Return a compact list of series for browsing and selection."""
+    return fetch_lookup(conn, QUERIES["fetch_series_list"])
+
+
+def fetch_series_record(conn: sqlite3.Connection, series_id: int) -> dict[str, Any] | None:
+    """Fetch a single SERIES row for editing."""
+    row = conn.execute(QUERIES["fetch_series_record"], (series_id,)).fetchone()
+    return dict(row) if row else None
 
 # -----------------------------------------------------------------------------
 # Record queries for browsing and editing
@@ -773,6 +788,40 @@ def delete_scheme(conn: sqlite3.Connection, scheme_id: int) -> None:
     conn.commit()
 
 
+def insert_series(conn: sqlite3.Connection, values: dict[str, Any]) -> None:
+    """Insert a new SERIES record."""
+    conn.execute(
+        QUERIES["insert_series"],
+        (
+            values["Name"],
+            values["Scheme_Id"],
+            values["Code"],
+            values["Plate_Format"],
+        ),
+    )
+    conn.commit()
+
+
+def update_series(conn: sqlite3.Connection, series_id: int, values: dict[str, Any]) -> None:
+    """Update an existing SERIES record."""
+    conn.execute(
+        QUERIES["update_series"],
+        (
+            values["Name"],
+            values["Scheme_Id"],
+            values["Code"],
+            values["Plate_Format"],
+            series_id,
+        ),
+    )
+    conn.commit()
+
+
+def delete_series(conn: sqlite3.Connection, series_id: int) -> None:
+    """Delete a SERIES record."""
+    conn.execute(QUERIES["delete_series"], (series_id,))
+    conn.commit()
+
 # -----------------------------------------------------------------------------
 # Datasette links
 # -----------------------------------------------------------------------------
@@ -805,6 +854,11 @@ def datasette_scheme_url(base_url: str, db_file: Path, scheme_id: int) -> str:
     db_name = db_file.stem
     return f"{base_url.rstrip('/')}/{db_name}/SCHEME/{scheme_id}"
 
+
+def datasette_series_url(base_url: str, db_file: Path, series_id: int) -> str:
+    """Build the Datasette URL for a SERIES record."""
+    db_name = db_file.stem
+    return f"{base_url.rstrip('/')}/{db_name}/SERIES/{series_id}"
 
 # -----------------------------------------------------------------------------
 # Streamlit form renderers
@@ -1394,6 +1448,138 @@ def render_scheme_form(
         st.error(f"Could not save scheme: {exc}")
 
 
+def render_series_form(
+    conn: sqlite3.Connection,
+    mode: str,
+    db_file: Path,
+    datasette_url: str,
+    series: dict[str, Any] | None = None,
+) -> None:
+    """Render the add/edit form for SERIES records."""
+    scheme_options = fetch_scheme_list(conn)
+
+    if not scheme_options:
+        st.error("SCHEME must contain data before you can add or edit series.")
+        return
+
+    series = series or {}
+    series_id = int(series["Id"]) if series.get("Id") is not None else None
+    key_base = form_key_base("series", mode, series_id)
+
+    if mode == "add":
+        scheme_form_options = make_nullable_options(
+            scheme_options, placeholder="— Select scheme —"
+        )
+        default_scheme_id = None
+    else:
+        scheme_form_options = scheme_options
+        default_scheme_id = series.get("Scheme_Id")
+
+    plate_format_options = ["simple", "subsequence"]
+
+    existing_plate_format = series.get("Plate_Format")
+    if existing_plate_format not in plate_format_options:
+        existing_plate_format = "simple"
+
+    with st.form(
+        f"{mode}_series_form_{series_id if series_id is not None else 'new'}",
+        clear_on_submit=(mode == "add"),
+    ):
+        name = st.text_input(
+            "Name *",
+            value=series.get("Name") or "",
+            key=f"{key_base}_name",
+        )
+
+        scheme = st.selectbox(
+            "Scheme *",
+            options=scheme_form_options,
+            index=option_index(scheme_form_options, default_scheme_id),
+            format_func=lambda x: x["Label"],
+            key=f"{key_base}_scheme",
+        )
+
+        code = st.text_input(
+            "Code",
+            value=series.get("Code") or "",
+            key=f"{key_base}_code",
+        )
+
+        plate_format = st.selectbox(
+            "Plate Format *",
+            options=plate_format_options,
+            index=plate_format_options.index(existing_plate_format),
+            key=f"{key_base}_plate_format",
+        )
+
+        submitted = st.form_submit_button(
+            "Add series" if mode == "add" else "Save changes",
+            type="primary",
+        )
+
+    if mode == "edit" and series.get("Id") is not None:
+        series_id = int(series["Id"])
+
+        st.markdown(
+            f"[View in Datasette]({datasette_series_url(datasette_url, db_file, series_id)})"
+        )
+
+        confirm_delete = st.checkbox(
+            "Confirm delete of this series",
+            key=f"confirm_delete_series_{series_id}",
+        )
+
+        if st.button(
+            "Delete series",
+            type="secondary",
+            key=f"delete_series_{series_id}",
+        ):
+            if not confirm_delete:
+                st.error("Tick the confirmation box before deleting.")
+            else:
+                try:
+                    delete_series(conn, series_id)
+                    st.success("Series deleted.")
+                    st.rerun()
+                except sqlite3.IntegrityError as exc:
+                    st.error(f"Could not delete series: {exc}")
+
+    if not submitted:
+        return
+
+    errors: list[str] = []
+    if not name.strip():
+        errors.append("Name is required.")
+    if selected_fk(scheme) is None:
+        errors.append("Scheme is required.")
+    if plate_format not in {"simple", "subsequence"}:
+        errors.append("Plate Format must be either 'simple' or 'subsequence'.")
+
+    if errors:
+        for error in errors:
+            st.error(error)
+        return
+
+    payload = {
+        "Name": name.strip(),
+        "Scheme_Id": selected_fk(scheme),
+        "Code": code.strip() or None,
+        "Plate_Format": plate_format,
+    }
+
+    try:
+        if mode == "add":
+            insert_series(conn, payload)
+            st.success("Series added.")
+        else:
+            assert series.get("Id") is not None
+            update_series(conn, int(series["Id"]), payload)
+            st.success("Series updated.")
+        st.rerun()
+    except sqlite3.IntegrityError as exc:
+        st.error(f"Could not save series: {exc}")
+
+
 # -----------------------------------------------------------------------------
 # Main UI
 # -----------------------------------------------------------------------------
@@ -1458,13 +1644,18 @@ def main() -> None:
                 st.error("This database does not contain a SCHEME table.")
                 return
 
+            if not table_exists(conn, "SERIES"):
+                st.error("This database does not contain a SERIES table.")
+                return
+
             load_sql_queries()
 
-            top_plate_tab, top_investigation_tab, top_location_tab, top_scheme_tab = st.tabs([
+            top_plate_tab, top_investigation_tab, top_location_tab, top_scheme_tab, top_series_tab = st.tabs([
                 "Plates",
                 "Investigations",
                 "Locations",
                 "Schemes",
+                "Series",
             ])
 
             with top_plate_tab:
@@ -1550,6 +1741,27 @@ def main() -> None:
                         f'{row["Code"]} | {row["Title"]}'
                         if row.get("Title")
                         else row["Code"]
+                    ),
+                )
+
+            with top_series_tab:
+                render_maintenance_section(
+                    conn=conn,
+                    db_file=db_file,
+                    datasette_url=datasette_url,
+                    entity_name="series",
+                    add_title="Add series",
+                    edit_title="Edit series",
+                    browse_title="Browse",
+                    fetch_list=fetch_series_list,
+                    fetch_record=fetch_series_record,
+                    render_form=render_series_form,
+                    edit_select_label="Choose a series to edit",
+                    edit_select_key="series_edit_select",
+                    search_key="series_search",
+                    search_label="Search series",
+                    option_label_builder=lambda row: (
+                        f'{row["Scheme_Code"]} | {row["Code"] or "—"} | {row["Name"]} | {row["Plate_Format"]}'
                     ),
                 )
 

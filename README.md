@@ -92,18 +92,13 @@ Alternatively, the database file path can be specified on the command line:
 streamlit run src/maintain_plates.py -- --db path/to/database.db
 ```
 
-The Streamlit-bsed editor is used to:
+The Streamlit-based editor is used to:
 
-- Add/edit plates
-- Add/edit investigations
-- Add/edit locations
+- Add/edit and in some instances delete data in all tables in the schema
 - Search and browse the data
-- Delete plates
-- Quick links to Datasette
+- Provide quick links to Datasette
 
-Plates, investigations and locations are considered the fastest-moving data in need of a maintenance UI. The remaining data is likely to be relatively static and the expectation is this will be maintained in SQLite itself.
-
-The Streamlit UI includes a link to Datasette and if you want to use this then Datasette should also be started (see below)
+To use the quick links to Datasette, it should also be started alongside Streamlit (see below).
 
 ### Datasette (Data Exploration)
 
