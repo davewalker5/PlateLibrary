@@ -16,6 +16,10 @@ def fetch_investigation(
     row = conn.execute(QUERIES["fetch_investigation"]["sql"], (investigation_id,)).fetchone()
     return dict(row) if row else None
 
+def fetch_investigation_list(conn: sqlite3.Connection) -> list[dict[str, Any]]:
+    """Return a compact list of investigations for browsing and selection."""
+    return fetch_lookup(conn, QUERIES["fetch_investigation_list"]["sql"])
+
 
 # -----------------------------------------------------------------------------
 # INSERT / UPDATE / DELETE helpers
