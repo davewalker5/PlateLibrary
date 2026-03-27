@@ -28,6 +28,7 @@ from typing import Any
 import argparse
 import streamlit as st
 
+from scheme_sql import *
 from data_conversion_helpers import *
 from sqlite_helpers import *
 from plate_numbering import *
@@ -35,7 +36,7 @@ from plate_preview import *
 from ui_helpers import *
 from species_sql import *
 from series_sql import *
-from scheme_sql import *
+from objectives_sql import *
 
 PROGRAM_NAME = "Microscopy Plate Library Maintenance UI"
 PROGRAM_VERSION = "1.6.0"
@@ -52,11 +53,6 @@ PROJECT_FOLDER = os.path.dirname(os.path.dirname(__file__))
 # -----------------------------------------------------------------------------
 # Lookup queries used by the PLATE, INVESTIGATION and LOCATION forms
 # -----------------------------------------------------------------------------
-def fetch_objectives(conn: sqlite3.Connection) -> list[dict[str, Any]]:
-    """Return microscope objectives formatted for display in the UI."""
-    return fetch_lookup(conn, QUERIES["fetch_objectives"]["sql"])
-
-
 def fetch_cameras(conn: sqlite3.Connection) -> list[dict[str, Any]]:
     """Return camera records formatted for the select box."""
     return fetch_lookup(conn, QUERIES["fetch_cameras"]["sql"])
