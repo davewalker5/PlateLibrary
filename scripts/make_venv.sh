@@ -19,7 +19,7 @@ python -m venv venv
 pip install --upgrade pip
 
 # Install the requirements
-pip install -r requirements.txt
+pip install -e .
 
 # Restore the current folder
 cd "$CWD"
