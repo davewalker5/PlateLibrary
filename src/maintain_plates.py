@@ -36,7 +36,8 @@ from plate_preview import *
 from ui_helpers import *
 from species_sql import *
 from series_sql import *
-from objectives_sql import *
+from objective_sql import *
+from camera_sql import *
 
 PROGRAM_NAME = "Microscopy Plate Library Maintenance UI"
 PROGRAM_VERSION = "1.6.0"
@@ -53,10 +54,6 @@ PROJECT_FOLDER = os.path.dirname(os.path.dirname(__file__))
 # -----------------------------------------------------------------------------
 # Lookup queries used by the PLATE, INVESTIGATION and LOCATION forms
 # -----------------------------------------------------------------------------
-def fetch_cameras(conn: sqlite3.Connection) -> list[dict[str, Any]]:
-    """Return camera records formatted for the select box."""
-    return fetch_lookup(conn, QUERIES["fetch_cameras"]["sql"])
-
 
 def fetch_stains(conn: sqlite3.Connection) -> list[dict[str, Any]]:
     """Return stains formatted for display in the UI."""
