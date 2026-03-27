@@ -43,39 +43,44 @@ PROJECT_FOLDER = os.path.dirname(os.path.dirname(__file__))
 
 # Dictionary of SQL queries used to load, insert, update and delete data
 QUERIES = {
-    "fetch_species": None,
-    "fetch_objectives": None,
-    "fetch_cameras": None,
-    "fetch_stains": None,
-    "fetch_locations": None,
-    "fetch_series": None,
-    "fetch_investigations": None,
-    "fetch_plate_list": None,
-    "fetch_plate": None,
-    "fetch_investigation_list": None,
-    "fetch_investigation": None,
-    "fetch_location_list": None,
-    "fetch_location": None,
-    "fetch_scheme_list": None,
-    "fetch_scheme": None,
-    "fetch_series_list": None,
-    "fetch_series_record": None,
-    "load_plate_format_for_investigation": None,
-    "load_existing_plate_references": None,
-    "insert_plate": None,
-    "update_plate": None,
-    "delete_plate": None,
-    "insert_location": None,
-    "update_investigation": None,
-    "update_location": None,
-    "delete_location": None,
-    "insert_investigation": None,
-    "insert_scheme": None,
-    "update_scheme": None,
-    "delete_scheme": None,
-    "insert_series": None,
-    "update_series": None,
-    "delete_series": None,
+    "fetch_species": { "section": "species" },
+    "fetch_species_list": { "section": "species" },
+    "fetch_species_record": { "section": "species" },
+    "fetch_objectives": { "section": "objective" },
+    "fetch_cameras": { "section": "camera" },
+    "fetch_stains": { "section": "stain" },
+    "fetch_locations": { "section": "location" },
+    "fetch_series": { "section": "series" },
+    "fetch_investigations": { "section": "investigation" },
+    "fetch_plate_list": { "section": "plate" },
+    "fetch_plate": { "section": "plate" },
+    "fetch_investigation_list": { "section": "investigation" },
+    "fetch_investigation": { "section": "investigation" },
+    "fetch_location_list": { "section": "location" },
+    "fetch_location": { "section": "location" },
+    "fetch_scheme_list": { "section": "scheme" },
+    "fetch_scheme": { "section": "scheme" },
+    "fetch_series_list": { "section": "series" },
+    "fetch_series_record": { "section": "series" },
+    "load_plate_format_for_investigation": { "section": "investigation" },
+    "load_existing_plate_references": { "section": "plate" },
+    "insert_plate": { "section": "plate" },
+    "update_plate": { "section": "plate" },
+    "delete_plate": { "section": "plate" },
+    "insert_location": { "section": "location" },
+    "update_location": { "section": "location" },
+    "delete_location": { "section": "location" },
+    "insert_investigation": { "section": "investigation" },
+    "update_investigation": { "section": "investigation" },
+    "insert_scheme": { "section": "scheme" },
+    "update_scheme": { "section": "scheme" },
+    "delete_scheme": { "section": "scheme" },
+    "insert_series": { "section": "series" },
+    "update_series": { "section": "series" },
+    "delete_series": { "section": "series" },
+    "insert_species": { "section": "species" },
+    "update_species": { "section": "species" },
+    "delete_species": { "section": "species" },
 }
 
 # The plate images and, where appropriate, movies are stored in the following folder structure:
@@ -149,9 +154,9 @@ def load_sql_queries():
     """Load the SQL queries"""
     for key in QUERIES.keys():
         file_name = key + ".sql"
-        file_path = (Path(PROJECT_FOLDER) / "sql" / file_name).resolve()
+        file_path = (Path(PROJECT_FOLDER) / "sql" / QUERIES[key]["section"] / file_name).resolve()
         with open(file_path, "r") as f:
-            QUERIES[key] = f.read()
+            QUERIES[key]["sql"] = f.read()
 
 
 # -----------------------------------------------------------------------------
@@ -159,58 +164,69 @@ def load_sql_queries():
 # -----------------------------------------------------------------------------
 def fetch_species(conn: sqlite3.Connection) -> list[dict[str, Any]]:
     """Return species records formatted for a select box."""
-    return fetch_lookup(conn, QUERIES["fetch_species"])
+    return fetch_lookup(conn, QUERIES["fetch_species"]["sql"])
 
 
 def fetch_objectives(conn: sqlite3.Connection) -> list[dict[str, Any]]:
     """Return microscope objectives formatted for display in the UI."""
-    return fetch_lookup(conn, QUERIES["fetch_objectives"])
+    return fetch_lookup(conn, QUERIES["fetch_objectives"]["sql"])
 
 
 def fetch_cameras(conn: sqlite3.Connection) -> list[dict[str, Any]]:
     """Return camera records formatted for the select box."""
-    return fetch_lookup(conn, QUERIES["fetch_cameras"])
+    return fetch_lookup(conn, QUERIES["fetch_cameras"]["sql"])
 
 
 def fetch_stains(conn: sqlite3.Connection) -> list[dict[str, Any]]:
     """Return stains formatted for display in the UI."""
-    return fetch_lookup(conn, QUERIES["fetch_stains"])
+    return fetch_lookup(conn, QUERIES["fetch_stains"]["sql"])
 
 
 def fetch_locations(conn: sqlite3.Connection) -> list[dict[str, Any]]:
     """Return locations formatted for display in the UI."""
-    return fetch_lookup(conn, QUERIES["fetch_locations"])
+    return fetch_lookup(conn, QUERIES["fetch_locations"]["sql"])
 
 
 def fetch_series(conn: sqlite3.Connection) -> list[dict[str, Any]]:
     """Return series values formatted for investigation maintenance."""
-    return fetch_lookup(conn, QUERIES["fetch_series"])
+    return fetch_lookup(conn, QUERIES["fetch_series"]["sql"])
 
 
 def fetch_investigations(conn: sqlite3.Connection) -> list[dict[str, Any]]:
     """Return investigations formatted for use in the PLATE form."""
-    return fetch_lookup(conn, QUERIES["fetch_investigations"])
+    return fetch_lookup(conn, QUERIES["fetch_investigations"]["sql"])
 
 
 def fetch_scheme_list(conn: sqlite3.Connection) -> list[dict[str, Any]]:
     """Return a compact list of schemes for browsing and selection."""
-    return fetch_lookup(conn, QUERIES["fetch_scheme_list"])
+    return fetch_lookup(conn, QUERIES["fetch_scheme_list"]["sql"])
 
 
 def fetch_scheme(conn: sqlite3.Connection, scheme_id: int) -> dict[str, Any] | None:
     """Fetch a single SCHEME row for editing."""
-    row = conn.execute(QUERIES["fetch_scheme"], (scheme_id,)).fetchone()
+    row = conn.execute(QUERIES["fetch_scheme"]["sql"], (scheme_id,)).fetchone()
     return dict(row) if row else None
 
 
 def fetch_series_list(conn: sqlite3.Connection) -> list[dict[str, Any]]:
     """Return a compact list of series for browsing and selection."""
-    return fetch_lookup(conn, QUERIES["fetch_series_list"])
+    return fetch_lookup(conn, QUERIES["fetch_series_list"]["sql"])
 
 
 def fetch_series_record(conn: sqlite3.Connection, series_id: int) -> dict[str, Any] | None:
     """Fetch a single SERIES row for editing."""
-    row = conn.execute(QUERIES["fetch_series_record"], (series_id,)).fetchone()
+    row = conn.execute(QUERIES["fetch_series_record"]["sql"], (series_id,)).fetchone()
+    return dict(row) if row else None
+
+
+def fetch_species_list(conn: sqlite3.Connection) -> list[dict[str, Any]]:
+    """Return a compact list of species for browsing and selection."""
+    return fetch_lookup(conn, QUERIES["fetch_species_list"]["sql"])
+
+
+def fetch_species_record(conn: sqlite3.Connection, species_id: int) -> dict[str, Any] | None:
+    """Fetch a single SPECIES row for editing."""
+    row = conn.execute(QUERIES["fetch_species_record"]["sql"], (species_id,)).fetchone()
     return dict(row) if row else None
 
 # -----------------------------------------------------------------------------
@@ -218,36 +234,36 @@ def fetch_series_record(conn: sqlite3.Connection, series_id: int) -> dict[str, A
 # -----------------------------------------------------------------------------
 def fetch_plate_list(conn: sqlite3.Connection) -> list[dict[str, Any]]:
     """Return a compact list of plates for browsing and selection."""
-    return fetch_lookup(conn, QUERIES["fetch_plate_list"])
+    return fetch_lookup(conn, QUERIES["fetch_plate_list"]["sql"])
 
 
 def fetch_plate(conn: sqlite3.Connection, plate_id: int) -> dict[str, Any] | None:
     """Fetch a single PLATE row for editing."""
-    row = conn.execute(QUERIES["fetch_plate"], (plate_id,)).fetchone()
+    row = conn.execute(QUERIES["fetch_plate"]["sql"], (plate_id,)).fetchone()
     return dict(row) if row else None
 
 
 def fetch_investigation_list(conn: sqlite3.Connection) -> list[dict[str, Any]]:
     """Return a compact list of investigations for browsing and selection."""
-    return fetch_lookup(conn, QUERIES["fetch_investigation_list"])
+    return fetch_lookup(conn, QUERIES["fetch_investigation_list"]["sql"])
 
 
 def fetch_investigation(
     conn: sqlite3.Connection, investigation_id: int
 ) -> dict[str, Any] | None:
     """Fetch a single INVESTIGATION row for editing."""
-    row = conn.execute(QUERIES["fetch_investigation"], (investigation_id,)).fetchone()
+    row = conn.execute(QUERIES["fetch_investigation"]["sql"], (investigation_id,)).fetchone()
     return dict(row) if row else None
 
 
 def fetch_location_list(conn: sqlite3.Connection) -> list[dict[str, Any]]:
     """Return a compact list of locations for browsing and selection."""
-    return fetch_lookup(conn, QUERIES["fetch_location_list"])
+    return fetch_lookup(conn, QUERIES["fetch_location_list"]["sql"])
 
 
 def fetch_location(conn: sqlite3.Connection, location_id: int) -> dict[str, Any] | None:
     """Fetch a single LOCATION row for editing."""
-    row = conn.execute(QUERIES["fetch_location"], (location_id,)).fetchone()
+    row = conn.execute(QUERIES["fetch_location"]["sql"], (location_id,)).fetchone()
     return dict(row) if row else None
 
 
@@ -372,7 +388,7 @@ def suggest_next_plate_for_investigation(
 
     For subsequence series, XXX is incremented and NNN resets to 001.
     """
-    row = conn.execute(QUERIES["load_plate_format_for_investigation"], (investigation_id,)).fetchone()
+    row = conn.execute(QUERIES["load_plate_format_for_investigation"]["sql"], (investigation_id,)).fetchone()
 
     if row is None:
         return None
@@ -387,7 +403,7 @@ def suggest_next_plate_for_investigation(
 
     prefix = f"{scheme_code}-{series_code}-"
 
-    existing_rows = conn.execute(QUERIES["load_existing_plate_references"], (series_id,)).fetchall()
+    existing_rows = conn.execute(QUERIES["load_existing_plate_references"]["sql"], (series_id,)).fetchall()
 
     max_sequence = 0
 
@@ -645,7 +661,7 @@ def render_maintenance_section(
 def insert_plate(conn: sqlite3.Connection, values: dict[str, Any]) -> None:
     """Insert a new PLATE record."""
     conn.execute(
-        QUERIES["insert_plate"],
+        QUERIES["insert_plate"]["sql"],
         (
             values["Date"],
             values["Specimen"],
@@ -667,7 +683,7 @@ def insert_plate(conn: sqlite3.Connection, values: dict[str, Any]) -> None:
 def update_plate(conn: sqlite3.Connection, plate_id: int, values: dict[str, Any]) -> None:
     """Update an existing PLATE record."""
     conn.execute(
-       QUERIES["update_plate"],
+       QUERIES["update_plate"]["sql"],
         (
             values["Date"],
             values["Specimen"],
@@ -689,14 +705,14 @@ def update_plate(conn: sqlite3.Connection, plate_id: int, values: dict[str, Any]
 
 def delete_plate(conn: sqlite3.Connection, plate_id: int) -> None:
     """Delete a PLATE record."""
-    conn.execute(QUERIES["delete_plate"], (plate_id,))
+    conn.execute(QUERIES["delete_plate"]["sql"], (plate_id,))
     conn.commit()
 
 
 def insert_investigation(conn: sqlite3.Connection, values: dict[str, Any]) -> None:
     """Insert a new INVESTIGATION record."""
     conn.execute(
-       QUERIES["insert_investigation"],
+       QUERIES["insert_investigation"]["sql"],
         (
             values["Reference"],
             values["Title"],
@@ -712,7 +728,7 @@ def update_investigation(
     values: dict[str, Any],
 ) -> None:
     """Update an existing INVESTIGATION record."""
-    conn.execute(QUERIES["update_investigation"],
+    conn.execute(QUERIES["update_investigation"]["sql"],
         (
             values["Reference"],
             values["Title"],
@@ -725,7 +741,7 @@ def update_investigation(
 
 def insert_location(conn: sqlite3.Connection, values: dict[str, Any]) -> None:
     """Insert a new LOCATION record."""
-    conn.execute(QUERIES["insert_location"],
+    conn.execute(QUERIES["insert_location"]["sql"],
         (
             values["Name"],
             values["Grid_Reference"],
@@ -739,7 +755,7 @@ def insert_location(conn: sqlite3.Connection, values: dict[str, Any]) -> None:
 def update_location(conn: sqlite3.Connection, location_id: int, values: dict[str, Any]) -> None:
     """Update an existing LOCATION record."""
     conn.execute(
-        QUERIES["update_location"],
+        QUERIES["update_location"]["sql"],
         (
             values["Name"],
             values["Grid_Reference"],
@@ -753,14 +769,14 @@ def update_location(conn: sqlite3.Connection, location_id: int, values: dict[str
 
 def delete_location(conn: sqlite3.Connection, location_id: int) -> None:
     """Delete a LOCATION record."""
-    conn.execute(QUERIES["delete_location"], (location_id,))
+    conn.execute(QUERIES["delete_location"]["sql"], (location_id,))
     conn.commit()
 
 
 def insert_scheme(conn: sqlite3.Connection, values: dict[str, Any]) -> None:
     """Insert a new SCHEME record."""
     conn.execute(
-        QUERIES["insert_scheme"],
+        QUERIES["insert_scheme"]["sql"],
         (
             values["Name"],
             values["Code"],
@@ -772,7 +788,7 @@ def insert_scheme(conn: sqlite3.Connection, values: dict[str, Any]) -> None:
 def update_scheme(conn: sqlite3.Connection, scheme_id: int, values: dict[str, Any]) -> None:
     """Update an existing SCHEME record."""
     conn.execute(
-        QUERIES["update_scheme"],
+        QUERIES["update_scheme"]["sql"],
         (
             values["Name"],
             values["Code"],
@@ -784,14 +800,14 @@ def update_scheme(conn: sqlite3.Connection, scheme_id: int, values: dict[str, An
 
 def delete_scheme(conn: sqlite3.Connection, scheme_id: int) -> None:
     """Delete a SCHEME record."""
-    conn.execute(QUERIES["delete_scheme"], (scheme_id,))
+    conn.execute(QUERIES["delete_scheme"]["sql"], (scheme_id,))
     conn.commit()
 
 
 def insert_series(conn: sqlite3.Connection, values: dict[str, Any]) -> None:
     """Insert a new SERIES record."""
     conn.execute(
-        QUERIES["insert_series"],
+        QUERIES["insert_series"]["sql"],
         (
             values["Name"],
             values["Scheme_Id"],
@@ -805,7 +821,7 @@ def insert_series(conn: sqlite3.Connection, values: dict[str, Any]) -> None:
 def update_series(conn: sqlite3.Connection, series_id: int, values: dict[str, Any]) -> None:
     """Update an existing SERIES record."""
     conn.execute(
-        QUERIES["update_series"],
+        QUERIES["update_series"]["sql"],
         (
             values["Name"],
             values["Scheme_Id"],
@@ -819,7 +835,38 @@ def update_series(conn: sqlite3.Connection, series_id: int, values: dict[str, An
 
 def delete_series(conn: sqlite3.Connection, series_id: int) -> None:
     """Delete a SERIES record."""
-    conn.execute(QUERIES["delete_series"], (series_id,))
+    conn.execute(QUERIES["delete_series"]["sql"], (series_id,))
+    conn.commit()
+
+
+def insert_species(conn: sqlite3.Connection, values: dict[str, Any]) -> None:
+    """Insert a new SPECIES record."""
+    conn.execute(
+        QUERIES["insert_species"]["sql"],
+        (
+            values["Scientific_Name"],
+            values["Common_Name"],
+        ),
+    )
+    conn.commit()
+
+
+def update_species(conn: sqlite3.Connection, species_id: int, values: dict[str, Any]) -> None:
+    """Update an existing SPECIES record."""
+    conn.execute(
+        QUERIES["update_species"]["sql"],
+        (
+            values["Scientific_Name"],
+            values["Common_Name"],
+            species_id,
+        ),
+    )
+    conn.commit()
+
+
+def delete_species(conn: sqlite3.Connection, species_id: int) -> None:
+    """Delete a SPECIES record."""
+    conn.execute(QUERIES["delete_species"]["sql"], (species_id,))
     conn.commit()
 
 # -----------------------------------------------------------------------------
@@ -859,6 +906,12 @@ def datasette_series_url(base_url: str, db_file: Path, series_id: int) -> str:
     """Build the Datasette URL for a SERIES record."""
     db_name = db_file.stem
     return f"{base_url.rstrip('/')}/{db_name}/SERIES/{series_id}"
+
+
+def datasette_species_url(base_url: str, db_file: Path, species_id: int) -> str:
+    """Build the Datasette URL for a SPECIES record."""
+    db_name = db_file.stem
+    return f"{base_url.rstrip('/')}/{db_name}/SPECIES/{species_id}"
 
 # -----------------------------------------------------------------------------
 # Streamlit form renderers
@@ -1580,6 +1633,99 @@ def render_series_form(
         st.error(f"Could not save series: {exc}")
 
 
+def render_species_form(
+    conn: sqlite3.Connection,
+    mode: str,
+    db_file: Path,
+    datasette_url: str,
+    species: dict[str, Any] | None = None,
+) -> None:
+    """Render the add/edit form for SPECIES records."""
+    species = species or {}
+    species_id = int(species["Id"]) if species.get("Id") is not None else None
+    key_base = form_key_base("species", mode, species_id)
+
+    with st.form(
+        f"{mode}_species_form_{species_id if species_id is not None else 'new'}",
+        clear_on_submit=(mode == "add"),
+    ):
+        scientific_name = st.text_input(
+            "Scientific Name",
+            value=species.get("Scientific_Name") or "",
+            key=f"{key_base}_scientific_name",
+        )
+
+        common_name = st.text_input(
+            "Common Name",
+            value=species.get("Common_Name") or "",
+            key=f"{key_base}_common_name",
+        )
+
+        submitted = st.form_submit_button(
+            "Add species" if mode == "add" else "Save changes",
+            type="primary",
+        )
+
+    if mode == "edit" and species.get("Id") is not None:
+        species_id = int(species["Id"])
+
+        st.markdown(
+            f"[View in Datasette]({datasette_species_url(datasette_url, db_file, species_id)})"
+        )
+
+        confirm_delete = st.checkbox(
+            "Confirm delete of this species",
+            key=f"confirm_delete_species_{species_id}",
+        )
+
+        if st.button(
+            "Delete species",
+            type="secondary",
+            key=f"delete_species_{species_id}",
+        ):
+            if not confirm_delete:
+                st.error("Tick the confirmation box before deleting.")
+            else:
+                try:
+                    delete_species(conn, species_id)
+                    st.success("Species deleted.")
+                    st.rerun()
+                except sqlite3.IntegrityError as exc:
+                    st.error(f"Could not delete species: {exc}")
+
+    if not submitted:
+        return
+
+    scientific_name_clean = scientific_name.strip() or None
+    common_name_clean = common_name.strip() or None
+
+    errors: list[str] = []
+    if scientific_name_clean is None and common_name_clean is None:
+        errors.append("At least one of Scientific Name or Common Name is required.")
+
+    if errors:
+        for error in errors:
+            st.error(error)
+        return
+
+    payload = {
+        "Scientific_Name": scientific_name_clean,
+        "Common_Name": common_name_clean,
+    }
+
+    try:
+        if mode == "add":
+            insert_species(conn, payload)
+            st.success("Species added.")
+        else:
+            assert species.get("Id") is not None
+            update_species(conn, int(species["Id"]), payload)
+            st.success("Species updated.")
+        st.rerun()
+    except sqlite3.IntegrityError as exc:
+        st.error(f"Could not save species: {exc}")
+
+
 # -----------------------------------------------------------------------------
 # Main UI
 # -----------------------------------------------------------------------------
@@ -1648,14 +1794,19 @@ def main() -> None:
                 st.error("This database does not contain a SERIES table.")
                 return
 
+            if not table_exists(conn, "SPECIES"):
+                st.error("This database does not contain a SPECIES table.")
+                return
+
             load_sql_queries()
 
-            top_plate_tab, top_investigation_tab, top_location_tab, top_scheme_tab, top_series_tab = st.tabs([
+            top_plate_tab, top_investigation_tab, top_location_tab, top_scheme_tab, top_series_tab, top_species_tab = st.tabs([
                 "Plates",
                 "Investigations",
                 "Locations",
                 "Schemes",
                 "Series",
+                "Species",
             ])
 
             with top_plate_tab:
@@ -1763,6 +1914,25 @@ def main() -> None:
                     option_label_builder=lambda row: (
                         f'{row["Scheme_Code"]} | {row["Code"] or "—"} | {row["Name"]} | {row["Plate_Format"]}'
                     ),
+                )
+
+            with top_species_tab:
+                render_maintenance_section(
+                    conn=conn,
+                    db_file=db_file,
+                    datasette_url=datasette_url,
+                    entity_name="species",
+                    add_title="Add species",
+                    edit_title="Edit species",
+                    browse_title="Browse",
+                    fetch_list=fetch_species_list,
+                    fetch_record=fetch_species_record,
+                    render_form=render_species_form,
+                    edit_select_label="Choose a species to edit",
+                    edit_select_key="species_edit_select",
+                    search_key="species_search",
+                    search_label="Search species",
+                    option_label_builder=lambda row: row["Label"],
                 )
 
     except sqlite3.Error as exc:
