@@ -1,8 +1,9 @@
-SELECT          strftime('%d/%m/', p.Date) || substr(strftime('%Y', p.Date), 3, 2) AS "Date",
+SELECT          strftime('%d/%m/%Y', p.Date) AS "Date",
                 sc.Code || ' ' || se.Name AS "Series",
                 sp.Scientific_Name AS "Scientific",
                 sp.Common_Name AS "Common",
                 p.Specimen,
+                st.Description as "Stain",
                 CASE
                     WHEN l.Id IS NULL THEN NULL
                     WHEN l.Grid_Reference IS NOT NULL THEN l.Grid_Reference
@@ -30,4 +31,5 @@ INNER JOIN      MICROSCOPE m ON m.Id = o.Microscope_Id
 INNER JOIN      CAMERA c ON c.Id = p.Camera_Id
 LEFT OUTER JOIN SPECIES sp ON sp.Id = p.Species_Id
 LEFT OUTER JOIN LOCATION l ON l.Id = p.Location_Id
+LEFT OUTER JOIN STAIN st ON st.Id = p.Stain_Id
 WHERE           p.Hidden = 0;
