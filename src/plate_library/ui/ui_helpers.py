@@ -112,7 +112,6 @@ def render_maintenance_section(
     active_view = st.segmented_control(
         "Mode",
         options=views,
-        default=st.session_state[view_key],
         key=view_key,
         selection_mode="single",
         label_visibility="collapsed",
