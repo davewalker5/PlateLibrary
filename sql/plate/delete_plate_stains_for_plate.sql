@@ -1,0 +1,2 @@
+DELETE FROM PLATE_STAIN
+WHERE  Plate_Id = ?

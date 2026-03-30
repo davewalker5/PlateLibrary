@@ -5,7 +5,13 @@ import sqlite3
 import streamlit as st
 from typing import Any
 from pathlib import Path
-from plate_library.utils.data_conversion_helpers import make_nullable_options, form_key_base, parse_db_date, option_index, selected_fk
+from plate_library.utils.data_conversion_helpers import (
+    make_nullable_options,
+    form_key_base,
+    parse_db_date,
+    option_index,
+    selected_fk,
+)
 
 # -----------------------------------------------------------------------------
 # Entity specific imports
@@ -19,6 +25,7 @@ from plate_library.sql.location_sql import fetch_locations
 from plate_library.utils.plate_numbering import suggest_next_plate_for_investigation
 from plate_library.ui.plate_preview import render_plate_media_preview
 from plate_library.sql.plate_sql import delete_plate, insert_plate, update_plate
+
 
 # -----------------------------------------------------------------------------
 # Datasette links
@@ -97,7 +104,7 @@ def render_plate_form(
     species_options = make_nullable_options(fetch_species(conn))
     objective_options = fetch_objectives(conn)
     camera_options = fetch_cameras(conn)
-    stain_options = make_nullable_options(fetch_stains(conn))
+    stain_options = fetch_stains(conn)
     location_options = make_nullable_options(fetch_locations(conn))
     investigation_options = fetch_investigations(conn)
 
@@ -114,6 +121,10 @@ def render_plate_form(
     apply_pending_plate_form_state(key_base)
 
     default_date = parse_db_date(plate.get("Date")) if mode == "edit" else None
+    selected_stain_ids = plate.get("Stain_Ids") or []
+    default_stain_options = [
+        option for option in stain_options if option["Id"] in selected_stain_ids
+    ]
 
     if mode == "add":
         objective_form_options = make_nullable_options(
@@ -226,12 +237,12 @@ def render_plate_form(
                 key=f"{key_base}_camera",
             )
 
-        stain = st.selectbox(
+        stains = st.multiselect(
             "Stain",
             options=stain_options,
-            index=option_index(stain_options, plate.get("Stain_Id")),
+            default=default_stain_options,
             format_func=lambda x: x["Label"],
-            key=f"{key_base}_stain",
+            key=f"{key_base}_stains",
         )
 
         location = st.selectbox(
@@ -325,7 +336,7 @@ def render_plate_form(
         "Species_Id": selected_fk(species),
         "Objective_Id": selected_fk(objective),
         "Camera_Id": selected_fk(camera),
-        "Stain_Id": selected_fk(stain),
+        "Stain_Ids": [int(item["Id"]) for item in stains],
         "Location_Id": selected_fk(location),
         "Investigation_Id": selected_fk(investigation),
     }
@@ -347,7 +358,7 @@ def render_plate_form(
                 "species": species,
                 "objective": objective,
                 "camera": camera,
-                "stain": stain,
+                "stains": stains,
                 "location": location,
                 "notes": "",
                 "notebook_reference": "",

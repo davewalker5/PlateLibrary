@@ -47,6 +47,8 @@ QUERIES = {
     "insert_plate": { "section": "plate" },
     "update_plate": { "section": "plate" },
     "delete_plate": { "section": "plate" },
+    "insert_plate_stain": { "section": "plate" },
+    "delete_plate_stains_for_plate": { "section": "plate" },
     "insert_location": { "section": "location" },
     "update_location": { "section": "location" },
     "delete_location": { "section": "location" },

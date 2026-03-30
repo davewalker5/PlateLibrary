@@ -3,7 +3,7 @@ SELECT          p.Date,
                 sp.Scientific_Name AS "Scientific",
                 sp.Common_Name AS "Common",
                 p.Specimen,
-                st.Description as "Stain",
+                st.Stain AS "Stain",
                 CASE
                     WHEN l.Id IS NULL THEN NULL
                     WHEN l.Grid_Reference IS NOT NULL THEN l.Grid_Reference
@@ -31,5 +31,15 @@ INNER JOIN      MICROSCOPE m ON m.Id = o.Microscope_Id
 INNER JOIN      CAMERA c ON c.Id = p.Camera_Id
 LEFT OUTER JOIN SPECIES sp ON sp.Id = p.Species_Id
 LEFT OUTER JOIN LOCATION l ON l.Id = p.Location_Id
-LEFT OUTER JOIN STAIN st ON st.Id = p.Stain_Id
-WHERE           p.Hidden = 0;
+LEFT OUTER JOIN (   SELECT  Plate_Id,
+                            group_concat(Description, ' | ') AS Stain
+                    FROM (
+                        SELECT  ps.Plate_Id,
+                                s.Description
+                        FROM    PLATE_STAIN ps
+                        INNER JOIN STAIN s ON s.Id = ps.Stain_Id
+                        ORDER BY ps.Plate_Id, s.Description
+                    )
+                    GROUP BY Plate_Id
+                ) st ON st.Plate_Id = p.Id
+WHERE           p.Hidden = 0
