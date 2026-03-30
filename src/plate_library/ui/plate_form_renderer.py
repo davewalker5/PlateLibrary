@@ -10,7 +10,7 @@ from plate_library.utils.data_conversion_helpers import make_nullable_options, f
 # -----------------------------------------------------------------------------
 # Entity specific imports
 # -----------------------------------------------------------------------------
-from plate_library.sql.species_sql import fetch_species, fetch_species_list
+from plate_library.sql.species_sql import fetch_species
 from plate_library.sql.objective_sql import fetch_objectives
 from plate_library.sql.camera_sql import fetch_cameras
 from plate_library.sql.investigation_sql import fetch_investigations
@@ -60,14 +60,27 @@ def apply_plate_defaults_from_investigation(
         current_plate = st.session_state.get(plate_key, "")
         current_reference = st.session_state.get(reference_key, "")
 
-        if not current_plate or current_plate == previous_suggestion:
-            st.session_state[plate_key] = suggested_plate
+        if not current_plate or current_plate == f"{previous_suggestion}.png":
+            st.session_state[plate_key] = f"{suggested_plate}.png"
 
         if not current_reference or current_reference == previous_suggestion:
             st.session_state[reference_key] = suggested_plate
 
     st.session_state[investigation_key] = investigation_id
     st.session_state[tracking_key] = suggested_plate or ""
+
+
+def apply_pending_plate_form_state(key_base: str) -> None:
+    """Apply deferred widget state updates before widgets are instantiated."""
+    pending_key = f"{key_base}_post_save_values"
+    pending = st.session_state.get(pending_key)
+    if not pending:
+        return
+
+    for suffix, value in pending.items():
+        st.session_state[f"{key_base}_{suffix}"] = value
+
+    del st.session_state[pending_key]
 
 
 # -----------------------------------------------------------------------------
@@ -97,6 +110,8 @@ def render_plate_form(
     plate = plate or {}
     plate_id = int(plate["Id"]) if plate.get("Id") is not None else None
     key_base = form_key_base("plate", mode, plate_id)
+
+    apply_pending_plate_form_state(key_base)
 
     default_date = parse_db_date(plate.get("Date")) if mode == "edit" else None
 
@@ -157,7 +172,7 @@ def render_plate_form(
 
     with st.form(
         f"{mode}_plate_form_{plate_id if plate_id is not None else 'new'}",
-        clear_on_submit=(mode == "add"),
+        clear_on_submit=False,
     ):
         col1, col2 = st.columns(2)
 
@@ -318,11 +333,38 @@ def render_plate_form(
     try:
         if mode == "add":
             insert_plate(conn, payload)
+
+            next_plate = suggest_next_plate_for_investigation(
+                conn,
+                selected_fk(investigation),
+            )
+
+            # Defer widget updates until the next rerun, before widgets are created.
+            st.session_state[f"{key_base}_post_save_values"] = {
+                "investigation": investigation,
+                "date": plate_date,
+                "specimen": specimen.strip(),
+                "species": species,
+                "objective": objective,
+                "camera": camera,
+                "stain": stain,
+                "location": location,
+                "notes": "",
+                "notebook_reference": "",
+                "plate": f"{next_plate}.png" if next_plate else "",
+                "reference": next_plate or "",
+            }
+
+            # Keep auto-suggestion tracking in sync
+            st.session_state[f"{key_base}_last_investigation_id"] = selected_fk(investigation)
+            st.session_state[f"{key_base}_last_suggested_plate"] = next_plate or ""
+
             st.success("Plate added.")
         else:
             assert plate.get("Id") is not None
             update_plate(conn, int(plate["Id"]), payload)
             st.success("Plate updated.")
+
         st.rerun()
     except sqlite3.IntegrityError as exc:
         st.error(f"Could not save plate: {exc}")
