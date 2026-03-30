@@ -9,8 +9,7 @@ INSERT INTO PLATE
     Species_Id,
     Objective_Id,
     Camera_Id,
-    Stain_Id,
     Location_Id,
     Investigation_Id
 )
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)

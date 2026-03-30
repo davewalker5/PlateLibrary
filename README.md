@@ -35,6 +35,7 @@ An import script is also provided to import data from a spreadsheet.
 | OBJECTIVE     | Represents the microscope objective used for the observation, including magnification and an association with the instrument                                                                                            |
 | CAMERA        | Represents the imaging setup used, including effective magnification ranges where applicable                                                                                                                            |
 | STAIN         | Represents any staining technique applied to the specimen. This is optional and reflects preparation method                                                                                                             |
+| PLATE_STAIN   | Maps plates to the staining techniques used in their preparation (optional)                                                                                                                                             |
 | LOCATION      | Represents where the specimen was collected or observed. This can include descriptive names and optional grid references                                                                                                |
 
 ### Seed Data

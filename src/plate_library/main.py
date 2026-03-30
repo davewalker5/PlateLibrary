@@ -60,7 +60,7 @@ from plate_library.ui.stain_form_renderer import render_stain_form
 
 
 PROGRAM_NAME = "Microscopy Plate Library Maintenance UI"
-PROGRAM_VERSION = "1.8.0"
+PROGRAM_VERSION = "1.9.0"
 PROGRAM_DESCRIPTION = "Maintenance UI for a simple microscopy plate library"
 
 # Default location for the local Datasette instance and database name
@@ -154,6 +154,7 @@ def main() -> None:
                     search_label="Search plates",
                     option_label_builder=lambda row: (
                         f'{row["Date"]} | {row["Plate"]} | {row["Reference"]} | {row["Specimen"]}'
+                        + (f' | {row["Stain"]}' if row.get("Stain") else "")
                     ),
                 )
 

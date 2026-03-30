@@ -1,6 +1,6 @@
 import sqlite3
 import streamlit as st
-from typing import Any
+from typing import Any, Callable
 from pathlib import Path
 
 
@@ -90,6 +90,7 @@ def render_maintenance_section(
     search_key: str,
     search_label: str,
     option_label_builder,
+    render_selected_summary: Callable[[dict[str, Any]], None] | None = None,
 ) -> None:
     """Render the repeated add/edit/browse pattern for one entity type.
 
@@ -154,6 +155,14 @@ def render_maintenance_section(
 
             st.session_state[selected_id_key] = int(selected["Id"])
 
+            selected_row = next(
+                (row for row in rows if int(row["Id"]) == int(selected["Id"])),
+                None,
+            )
+            if selected_row is not None and render_selected_summary is not None:
+                render_selected_summary(selected_row)
+                st.divider()
+
             record = fetch_record(conn, int(selected["Id"]))
             if record is not None:
                 render_form(
@@ -175,6 +184,14 @@ def render_maintenance_section(
         )
 
         if clicked_id is not None:
+            selected_row = next(
+                (row for row in rows if int(row["Id"]) == int(clicked_id)),
+                None,
+            )
+            if selected_row is not None and render_selected_summary is not None:
+                st.divider()
+                render_selected_summary(selected_row)
+
             st.session_state[selected_id_key] = clicked_id
             st.session_state[pending_view_key] = edit_title
             st.rerun()

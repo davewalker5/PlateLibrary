@@ -8,7 +8,6 @@ SET     Date = ?,
         Species_Id = ?,
         Objective_Id = ?,
         Camera_Id = ?,
-        Stain_Id = ?,
         Location_Id = ?,
         Investigation_Id = ?
 WHERE   Id = ?
