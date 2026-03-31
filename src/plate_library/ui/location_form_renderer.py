@@ -150,6 +150,9 @@ def render_location_form(
     map_center_lon_key = f"{key_base}_map_center_lon"
     map_zoom_key = f"{key_base}_map_zoom"
     map_style_key = f"{key_base}_map_style"
+    map_marker_lat_key = f"{key_base}_map_marker_lat"
+    map_marker_lon_key = f"{key_base}_map_marker_lon"
+    map_render_version_key = f"{key_base}_map_render_version"
 
     # Get the default map parameters
     initial_map_latitude = get_location_property("default_latitude")
@@ -218,25 +221,44 @@ def render_location_form(
     if map_style_key not in st.session_state:
         st.session_state[map_style_key] = map_style
 
+    if map_marker_lat_key not in st.session_state:
+        st.session_state[map_marker_lat_key] = current_lat if _valid_lat_lon(current_lat, current_lon) else None
+
+    if map_marker_lon_key not in st.session_state:
+        st.session_state[map_marker_lon_key] = current_lon if _valid_lat_lon(current_lat, current_lon) else None
+
+    if map_render_version_key not in st.session_state:
+        st.session_state[map_render_version_key] = 0
+
     # -------------------------------------------------------------------------
     # Map picker (outside the form)
     # -------------------------------------------------------------------------
-    ctrl1, ctrl2, ctrl3, ctrl4 = st.columns([1.4, 1.2, 1.0, 1.4])
+    go_to_pin_ctrl, reset_ctrl, clear_pin_ctrl, map_style_ctrl = st.columns([1.4, 1.2, 1.0, 1.4])
 
-    with ctrl1:
+    with go_to_pin_ctrl:
         st.markdown("<div style='height: 1.8em'></div>", unsafe_allow_html=True)
         if st.button("Go To Pin", use_container_width=True):
-            lat_for_map = _parse_optional_float(
-                st.session_state.get(latitude_key, ""), "Latitude", []
-            )
-            lon_for_map = _parse_optional_float(
-                st.session_state.get(longitude_key, ""), "Longitude", []
-            )
+            marker_lat = st.session_state.get(map_marker_lat_key)
+            marker_lon = st.session_state.get(map_marker_lon_key)
+
+            if _valid_lat_lon(marker_lat, marker_lon):
+                lat_for_map = float(marker_lat)
+                lon_for_map = float(marker_lon)
+            else:
+                lat_for_map = _parse_optional_float(
+                    st.session_state.get(latitude_key, ""), "Latitude", []
+                )
+                lon_for_map = _parse_optional_float(
+                    st.session_state.get(longitude_key, ""), "Longitude", []
+                )
 
             if _valid_lat_lon(lat_for_map, lon_for_map):
                 st.session_state[map_center_lat_key] = lat_for_map
                 st.session_state[map_center_lon_key] = lon_for_map
                 st.session_state[map_zoom_key] = 14
+                st.session_state[map_marker_lat_key] = lat_for_map
+                st.session_state[map_marker_lon_key] = lon_for_map
+                st.session_state[map_render_version_key] += 1
             else:
                 st.session_state[message_key] = (
                     "error",
@@ -244,25 +266,29 @@ def render_location_form(
                 )
             st.rerun()
 
-    with ctrl2:
+    with reset_ctrl:
         st.markdown("<div style='height: 1.8em'></div>", unsafe_allow_html=True)
         if st.button("Reset", use_container_width=True):
             st.session_state[map_center_lat_key] = initial_map_latitude
             st.session_state[map_center_lon_key] = initial_map_longitude
             st.session_state[map_zoom_key] = initial_map_zoom
+            st.session_state[map_render_version_key] += 1
             st.rerun()
 
-    with ctrl3:
+    with clear_pin_ctrl:
         st.markdown("<div style='height: 1.8em'></div>", unsafe_allow_html=True)
         if st.button("Clear Pin", use_container_width=True):
             st.session_state[latitude_key] = ""
             st.session_state[longitude_key] = ""
             st.session_state[gridref_key] = ""
             st.session_state[map_click_signature_key] = None
+            st.session_state[map_marker_lat_key] = None
+            st.session_state[map_marker_lon_key] = None
+            st.session_state[map_render_version_key] += 1
             st.session_state[message_key] = ("success", ["Coordinates cleared."])
             st.rerun()
 
-    with ctrl4:
+    with map_style_ctrl:
         st.selectbox(
             "Map style",
             ["OpenStreetMap", "CartoDB positron", "CartoDB Voyager"],
@@ -290,20 +316,22 @@ def render_location_form(
         attr=current_attr,
     )
 
-    current_lat = _parse_optional_float(st.session_state.get(latitude_key, ""), "Latitude", [])
-    current_lon = _parse_optional_float(st.session_state.get(longitude_key, ""), "Longitude", [])
+    marker_lat = st.session_state.get(map_marker_lat_key)
+    marker_lon = st.session_state.get(map_marker_lon_key)
 
-    if _valid_lat_lon(current_lat, current_lon):
+    if _valid_lat_lon(marker_lat, marker_lon):
         folium.Marker(
-            [current_lat, current_lon],
+            [marker_lat, marker_lon],
             tooltip="Current location",
         ).add_to(m)
+
+    map_component_key = f"{map_key}_{st.session_state[map_render_version_key]}"
 
     map_data = st_folium(
         m,
         width=None,
         height=360,
-        key=map_key,
+        key=map_component_key,
     )
 
     last_clicked = map_data.get("last_clicked") if map_data else None
@@ -317,6 +345,8 @@ def render_location_form(
             st.session_state[longitude_key] = f"{clicked_lon:.8f}"
             st.session_state[map_center_lat_key] = clicked_lat
             st.session_state[map_center_lon_key] = clicked_lon
+            st.session_state[map_marker_lat_key] = clicked_lat
+            st.session_state[map_marker_lon_key] = clicked_lon
 
             if map_data.get("zoom") is not None:
                 st.session_state[map_zoom_key] = map_data["zoom"]
