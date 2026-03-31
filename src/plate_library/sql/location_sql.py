@@ -2,6 +2,7 @@ import sqlite3
 from typing import Any
 from plate_library.sql.sqlite_helpers import fetch_lookup, QUERIES
 
+
 # -----------------------------------------------------------------------------
 # Data retrieval queries
 # -----------------------------------------------------------------------------
@@ -20,15 +21,18 @@ def fetch_location(conn: sqlite3.Connection, location_id: int) -> dict[str, Any]
     row = conn.execute(QUERIES["fetch_location"]["sql"], (location_id,)).fetchone()
     return dict(row) if row else None
 
+
 # -----------------------------------------------------------------------------
 # INSERT / UPDATE / DELETE helpers
 # -----------------------------------------------------------------------------
 def insert_location(conn: sqlite3.Connection, values: dict[str, Any]) -> None:
     """Insert a new LOCATION record."""
-    conn.execute(QUERIES["insert_location"]["sql"],
+    conn.execute(
+        QUERIES["insert_location"]["sql"],
         (
             values["Name"],
             values["Grid_Reference"],
+            values["Coordinate_System"],
             values["Latitude"],
             values["Longitude"],
         ),
@@ -43,6 +47,7 @@ def update_location(conn: sqlite3.Connection, location_id: int, values: dict[str
         (
             values["Name"],
             values["Grid_Reference"],
+            values["Coordinate_System"],
             values["Latitude"],
             values["Longitude"],
             location_id,

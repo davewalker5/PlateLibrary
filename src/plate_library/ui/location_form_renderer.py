@@ -161,7 +161,9 @@ def render_location_form(
         st.session_state[gridref_key] = location.get("Grid_Reference") or ""
 
     if coordinate_system_key not in st.session_state:
-        st.session_state[coordinate_system_key] = st.session_state[LAST_COORDINATE_SYSTEM_KEY]
+        st.session_state[coordinate_system_key] = (
+            location.get("Coordinate_System") or st.session_state[LAST_COORDINATE_SYSTEM_KEY]
+        )
 
     # -------------------------------------------------------------------------
     # Form
@@ -213,7 +215,7 @@ def render_location_form(
 
         with button_col:
             st.markdown("<div style='height: 1.8em'></div>", unsafe_allow_html=True)
-            calc_clicked = st.form_submit_button(
+            st.form_submit_button(
                 "Calculate",
                 on_click=_calculate_gridref_into_session,
                 args=(
@@ -290,6 +292,7 @@ def render_location_form(
     payload = {
         "Name": name.strip(),
         "Grid_Reference": grid_reference.strip() or None,
+        "Coordinate_System": coordinate_system,
         "Latitude": latitude,
         "Longitude": longitude,
     }
