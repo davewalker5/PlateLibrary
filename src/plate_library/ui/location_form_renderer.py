@@ -6,6 +6,8 @@ from pathlib import Path
 from typing import Any
 
 import streamlit as st
+import folium
+from streamlit_folium import st_folium
 
 from plate_library.utils.data_conversion_helpers import form_key_base
 
@@ -14,13 +16,16 @@ from plate_library.utils.data_conversion_helpers import form_key_base
 # -----------------------------------------------------------------------------
 from plate_library.sql.location_sql import delete_location, insert_location, update_location
 from plate_library.utils.coordinate_transformer import latitude_longitude_to_reference
+from plate_library.utils.config_reader import get_location_property
 
 # -----------------------------------------------------------------------------
-# Coordinate system config
+# Constants
 # -----------------------------------------------------------------------------
 COORDINATE_SYSTEM_OPTIONS = ["BNG", "UTM", "MGRS"]
 DEFAULT_COORDINATE_SYSTEM = "BNG"
 LAST_COORDINATE_SYSTEM_KEY = "location_last_coordinate_system"
+DEFAULT_MAP_STYLE = "OpenStreetMap"
+DEFAULT_MAP_ATTRIBUTION = None
 
 # -----------------------------------------------------------------------------
 # Datasette links
@@ -39,14 +44,24 @@ def _parse_optional_float(value: str, field_name: str, errors: list[str]) -> flo
     Parse a text field into a float or None.
     Append a validation message to errors if parsing fails.
     """
-    if not value.strip():
+    if not str(value).strip():
         return None
 
     try:
-        return float(value.strip())
+        return float(str(value).strip())
     except ValueError:
         errors.append(f"{field_name} must be a valid number.")
         return None
+
+
+def _valid_lat_lon(latitude: float | None, longitude: float | None) -> bool:
+    """Return True if latitude/longitude are both present and within valid bounds."""
+    return (
+        latitude is not None
+        and longitude is not None
+        and -90 <= latitude <= 90
+        and -180 <= longitude <= 180
+    )
 
 
 def _calculate_gridref_into_session(
@@ -69,9 +84,9 @@ def _calculate_gridref_into_session(
     latitude = _parse_optional_float(latitude_text, "Latitude", errors)
     longitude = _parse_optional_float(longitude_text, "Longitude", errors)
 
-    if latitude_text.strip() == "":
+    if str(latitude_text).strip() == "":
         errors.append("Latitude is required to calculate the reference.")
-    if longitude_text.strip() == "":
+    if str(longitude_text).strip() == "":
         errors.append("Longitude is required to calculate the reference.")
 
     if latitude is not None and not -90 <= latitude <= 90:
@@ -128,10 +143,22 @@ def render_location_form(
     message_key = f"{key_base}_message"
     clear_form_key = f"{key_base}_clear_form"
 
+    # Map interaction keys
+    map_key = f"{key_base}_map"
+    map_click_signature_key = f"{key_base}_map_click_signature"
+
+    # Get the default map parameters
+    initial_map_Latitude = get_location_property("default_latitude")
+    initial_map_longitude = get_location_property("default_longitude")
+    initial_map_zoom = get_location_property("map_zoom")
+    map_style = get_location_property("map_style") or DEFAULT_MAP_STYLE
+    attribution = get_location_property("attribution") or DEFAULT_MAP_ATTRIBUTION
+
     # Sticky default for coordinate system
     if LAST_COORDINATE_SYSTEM_KEY not in st.session_state:
         st.session_state[LAST_COORDINATE_SYSTEM_KEY] = DEFAULT_COORDINATE_SYSTEM
 
+    # Clear add form on rerun after successful insert
     if st.session_state.get(clear_form_key, False):
         st.session_state[name_key] = ""
         st.session_state[latitude_key] = ""
@@ -164,6 +191,59 @@ def render_location_form(
         st.session_state[coordinate_system_key] = (
             location.get("Coordinate_System") or st.session_state[LAST_COORDINATE_SYSTEM_KEY]
         )
+
+    # -------------------------------------------------------------------------
+    # Map picker (outside the form)
+    # -------------------------------------------------------------------------
+    map_parse_errors: list[str] = []
+    current_lat = _parse_optional_float(st.session_state.get(latitude_key, ""), "Latitude", map_parse_errors)
+    current_lon = _parse_optional_float(st.session_state.get(longitude_key, ""), "Longitude", map_parse_errors)
+
+    if _valid_lat_lon(current_lat, current_lon):
+        map_center_lat = current_lat
+        map_center_lon = current_lon
+        map_zoom = 14
+    else:
+        map_center_lat = initial_map_Latitude
+        map_center_lon = initial_map_longitude
+        map_zoom = initial_map_zoom
+
+    st.caption("Pick on map")
+    m = folium.Map(
+        location=[map_center_lat, map_center_lon],
+        zoom_start=map_zoom,
+        tiles=map_style,
+        attr=attribution
+    )
+
+    if _valid_lat_lon(current_lat, current_lon):
+        folium.Marker(
+            [current_lat, current_lon],
+            tooltip="Current location",
+        ).add_to(m)
+
+    map_data = st_folium(
+        m,
+        width=None,
+        height=360,
+        key=map_key,
+    )
+
+    last_clicked = map_data.get("last_clicked") if map_data else None
+    if last_clicked:
+        clicked_lat = float(last_clicked["lat"])
+        clicked_lon = float(last_clicked["lng"])
+        click_signature = f"{clicked_lat:.8f},{clicked_lon:.8f}"
+
+        if st.session_state.get(map_click_signature_key) != click_signature:
+            st.session_state[latitude_key] = f"{clicked_lat:.8f}"
+            st.session_state[longitude_key] = f"{clicked_lon:.8f}"
+            st.session_state[map_click_signature_key] = click_signature
+            st.session_state[message_key] = (
+                "success",
+                [f"Coordinates selected from map: {clicked_lat:.8f}, {clicked_lon:.8f}"],
+            )
+            st.rerun()
 
     # -------------------------------------------------------------------------
     # Form
@@ -312,3 +392,4 @@ def render_location_form(
 
     except sqlite3.IntegrityError as exc:
         st.error(f"Could not save location: {exc}")
+ 
