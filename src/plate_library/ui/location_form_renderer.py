@@ -146,9 +146,13 @@ def render_location_form(
     # Map interaction keys
     map_key = f"{key_base}_map"
     map_click_signature_key = f"{key_base}_map_click_signature"
+    map_center_lat_key = f"{key_base}_map_center_lat"
+    map_center_lon_key = f"{key_base}_map_center_lon"
+    map_zoom_key = f"{key_base}_map_zoom"
+    map_style_key = f"{key_base}_map_style"
 
     # Get the default map parameters
-    initial_map_Latitude = get_location_property("default_latitude")
+    initial_map_latitude = get_location_property("default_latitude")
     initial_map_longitude = get_location_property("default_longitude")
     initial_map_zoom = get_location_property("map_zoom")
     map_style = get_location_property("map_style") or DEFAULT_MAP_STYLE
@@ -192,29 +196,102 @@ def render_location_form(
             location.get("Coordinate_System") or st.session_state[LAST_COORDINATE_SYSTEM_KEY]
         )
 
+    # Seed map state once
+    map_parse_errors: list[str] = []
+    current_lat = _parse_optional_float(
+        st.session_state.get(latitude_key, ""), "Latitude", map_parse_errors
+    )
+    current_lon = _parse_optional_float(
+        st.session_state.get(longitude_key, ""), "Longitude", map_parse_errors
+    )
+
+    if map_center_lat_key not in st.session_state:
+        if _valid_lat_lon(current_lat, current_lon):
+            st.session_state[map_center_lat_key] = current_lat
+            st.session_state[map_center_lon_key] = current_lon
+            st.session_state[map_zoom_key] = 14
+        else:
+            st.session_state[map_center_lat_key] = initial_map_latitude
+            st.session_state[map_center_lon_key] = initial_map_longitude
+            st.session_state[map_zoom_key] = initial_map_zoom
+
+    if map_style_key not in st.session_state:
+        st.session_state[map_style_key] = map_style
+
     # -------------------------------------------------------------------------
     # Map picker (outside the form)
     # -------------------------------------------------------------------------
-    map_parse_errors: list[str] = []
-    current_lat = _parse_optional_float(st.session_state.get(latitude_key, ""), "Latitude", map_parse_errors)
-    current_lon = _parse_optional_float(st.session_state.get(longitude_key, ""), "Longitude", map_parse_errors)
+    ctrl1, ctrl2, ctrl3, ctrl4 = st.columns([1.4, 1.2, 1.0, 1.4])
 
-    if _valid_lat_lon(current_lat, current_lon):
-        map_center_lat = current_lat
-        map_center_lon = current_lon
-        map_zoom = 14
+    with ctrl1:
+        st.markdown("<div style='height: 1.8em'></div>", unsafe_allow_html=True)
+        if st.button("Go To Pin", use_container_width=True):
+            lat_for_map = _parse_optional_float(
+                st.session_state.get(latitude_key, ""), "Latitude", []
+            )
+            lon_for_map = _parse_optional_float(
+                st.session_state.get(longitude_key, ""), "Longitude", []
+            )
+
+            if _valid_lat_lon(lat_for_map, lon_for_map):
+                st.session_state[map_center_lat_key] = lat_for_map
+                st.session_state[map_center_lon_key] = lon_for_map
+                st.session_state[map_zoom_key] = 14
+            else:
+                st.session_state[message_key] = (
+                    "error",
+                    ["No valid current coordinates to centre on."],
+                )
+            st.rerun()
+
+    with ctrl2:
+        st.markdown("<div style='height: 1.8em'></div>", unsafe_allow_html=True)
+        if st.button("Reset", use_container_width=True):
+            st.session_state[map_center_lat_key] = initial_map_latitude
+            st.session_state[map_center_lon_key] = initial_map_longitude
+            st.session_state[map_zoom_key] = initial_map_zoom
+            st.rerun()
+
+    with ctrl3:
+        st.markdown("<div style='height: 1.8em'></div>", unsafe_allow_html=True)
+        if st.button("Clear Pin", use_container_width=True):
+            st.session_state[latitude_key] = ""
+            st.session_state[longitude_key] = ""
+            st.session_state[gridref_key] = ""
+            st.session_state[map_click_signature_key] = None
+            st.session_state[message_key] = ("success", ["Coordinates cleared."])
+            st.rerun()
+
+    with ctrl4:
+        st.selectbox(
+            "Map style",
+            ["OpenStreetMap", "CartoDB positron", "CartoDB Voyager"],
+            key=map_style_key,
+        )
+
+    map_center_lat = st.session_state[map_center_lat_key]
+    map_center_lon = st.session_state[map_center_lon_key]
+    map_zoom = st.session_state[map_zoom_key]
+    current_map_style = st.session_state[map_style_key]
+
+    if current_map_style == "OpenStreetMap":
+        current_attr = None
+    elif current_map_style == "CartoDB positron":
+        current_attr = None
+    elif current_map_style == "CartoDB Voyager":
+        current_attr = None
     else:
-        map_center_lat = initial_map_Latitude
-        map_center_lon = initial_map_longitude
-        map_zoom = initial_map_zoom
+        current_attr = attribution
 
-    st.caption("Pick on map")
     m = folium.Map(
         location=[map_center_lat, map_center_lon],
         zoom_start=map_zoom,
-        tiles=map_style,
-        attr=attribution
+        tiles=current_map_style,
+        attr=current_attr,
     )
+
+    current_lat = _parse_optional_float(st.session_state.get(latitude_key, ""), "Latitude", [])
+    current_lon = _parse_optional_float(st.session_state.get(longitude_key, ""), "Longitude", [])
 
     if _valid_lat_lon(current_lat, current_lon):
         folium.Marker(
@@ -238,6 +315,12 @@ def render_location_form(
         if st.session_state.get(map_click_signature_key) != click_signature:
             st.session_state[latitude_key] = f"{clicked_lat:.8f}"
             st.session_state[longitude_key] = f"{clicked_lon:.8f}"
+            st.session_state[map_center_lat_key] = clicked_lat
+            st.session_state[map_center_lon_key] = clicked_lon
+
+            if map_data.get("zoom") is not None:
+                st.session_state[map_zoom_key] = map_data["zoom"]
+
             st.session_state[map_click_signature_key] = click_signature
             st.session_state[message_key] = (
                 "success",
