@@ -64,6 +64,38 @@ def _valid_lat_lon(latitude: float | None, longitude: float | None) -> bool:
     )
 
 
+def _set_reference_from_coordinates(
+    latitude: float,
+    longitude: float,
+    gridref_key: str,
+    coordinate_system_key: str,
+    message_key: str,
+) -> None:
+    """
+    Calculate a coordinate reference from explicit latitude/longitude values
+    and write it into session state.
+    """
+    coordinate_system = st.session_state.get(
+        coordinate_system_key,
+        DEFAULT_COORDINATE_SYSTEM,
+    )
+
+    st.session_state[gridref_key] = latitude_longitude_to_reference(
+        latitude=latitude,
+        longitude=longitude,
+        system=coordinate_system,
+        os_digits=8,
+        utm_include_band=True,
+        utm_precision=0,
+        mgrs_precision=5,
+    )
+    st.session_state[LAST_COORDINATE_SYSTEM_KEY] = coordinate_system
+    st.session_state[message_key] = (
+        "success",
+        [f"{coordinate_system} reference calculated."],
+    )
+
+
 def _calculate_gridref_into_session(
     latitude_key: str,
     longitude_key: str,
@@ -79,7 +111,6 @@ def _calculate_gridref_into_session(
 
     latitude_text = st.session_state.get(latitude_key, "")
     longitude_text = st.session_state.get(longitude_key, "")
-    coordinate_system = st.session_state.get(coordinate_system_key, DEFAULT_COORDINATE_SYSTEM)
 
     latitude = _parse_optional_float(latitude_text, "Latitude", errors)
     longitude = _parse_optional_float(longitude_text, "Longitude", errors)
@@ -100,19 +131,12 @@ def _calculate_gridref_into_session(
         return
 
     try:
-        st.session_state[gridref_key] = latitude_longitude_to_reference(
+        _set_reference_from_coordinates(
             latitude=latitude,
             longitude=longitude,
-            system=coordinate_system,
-            os_digits=8,
-            utm_include_band=True,
-            utm_precision=0,
-            mgrs_precision=5,
-        )
-        st.session_state[LAST_COORDINATE_SYSTEM_KEY] = coordinate_system
-        st.session_state[message_key] = (
-            "success",
-            [f"{coordinate_system} reference calculated."],
+            gridref_key=gridref_key,
+            coordinate_system_key=coordinate_system_key,
+            message_key=message_key,
         )
     except Exception as exc:
         st.session_state[message_key] = ("error", [f"Could not calculate reference: {exc}"])
@@ -352,10 +376,21 @@ def render_location_form(
                 st.session_state[map_zoom_key] = map_data["zoom"]
 
             st.session_state[map_click_signature_key] = click_signature
-            st.session_state[message_key] = (
-                "success",
-                [f"Coordinates selected from map: {clicked_lat:.8f}, {clicked_lon:.8f}"],
-            )
+
+            try:
+                _set_reference_from_coordinates(
+                    latitude=clicked_lat,
+                    longitude=clicked_lon,
+                    gridref_key=gridref_key,
+                    coordinate_system_key=coordinate_system_key,
+                    message_key=message_key,
+                )
+            except Exception as exc:
+                st.session_state[message_key] = (
+                    "error",
+                    [f"Coordinates selected from map, but reference could not be calculated: {exc}"],
+                )
+
             st.rerun()
 
     # -------------------------------------------------------------------------
