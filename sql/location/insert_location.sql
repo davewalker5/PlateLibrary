@@ -1,2 +1,2 @@
-INSERT INTO LOCATION ( Name, Grid_Reference, Latitude, Longitude )
-VALUES (?, ?, ?, ?)
+INSERT INTO LOCATION ( Name, Grid_Reference, Coordinate_System, Latitude, Longitude )
+VALUES (?, ?, ?, ?, ?)
