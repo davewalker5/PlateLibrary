@@ -63,6 +63,18 @@ This will create a SQLite database called *plate_library.db* in the data folder.
 
 ## Running the Tools
 
+### Configuration File
+
+Configuration parameters are held in the *config.json* file at the root of the project, as follows:
+
+| Section  | Property          | Default | Purpose                                                        |
+| -------- | ----------------- | ------- | -------------------------------------------------------------- |
+| Location | default_latitude  | 51.75   | Latitude the location map centres on when first opened         |
+| Location | default_longitude | -1.25   | Longitude the location map centres on when first opened        |
+| Location | map_zoom          | 11      | Default zoom level for the map when first opened               |
+| Location | map_style         | null    | Default Folium map tile style - null defaults to OpenStreetMap |
+| Location | attribution       | null    | Required for some map tile styles                              |
+
 ### Virtual Environment
 
 To run the tools, first create and activate a virtual environment by running the following at the root of the project:
