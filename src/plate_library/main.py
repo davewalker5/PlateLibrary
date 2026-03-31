@@ -29,7 +29,7 @@ import streamlit as st
 # -----------------------------------------------------------------------------
 # Configuration
 # -----------------------------------------------------------------------------
-from plate_library.utils.config_reader import load_config
+from plate_library.utils.config_reader import load_config, get_application_version
 
 # -----------------------------------------------------------------------------
 # Database query helpers
@@ -63,16 +63,17 @@ from plate_library.ui.objective_form_renderer import render_objective_form
 from plate_library.ui.stain_form_renderer import render_stain_form
 
 
+# Root folder of the project
+PROJECT_FOLDER = Path(__file__).parent.parent.parent
+
 PROGRAM_NAME = "Microscopy Plate Library Maintenance UI"
-PROGRAM_VERSION = "1.11.0"
+PROGRAM_VERSION = get_application_version(PROJECT_FOLDER)
 PROGRAM_DESCRIPTION = "Maintenance UI for a simple microscopy plate library"
 
 # Default location for the local Datasette instance and database name
 DEFAULT_DATASETTE_URL = "http://127.0.0.1:8001"
 DB_NAME = "plate_library.db"
 
-# Root folder of the project
-PROJECT_FOLDER = Path(__file__).parent.parent.parent
 
 # -----------------------------------------------------------------------------
 # Main UI
