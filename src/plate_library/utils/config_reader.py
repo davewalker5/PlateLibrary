@@ -1,7 +1,15 @@
 import json
+import tomllib
 from pathlib import Path
 
 _CONFIG = {}
+
+
+def get_application_version(project_folder: str) -> str:
+    file_path = (Path(project_folder) / "pyproject.toml").resolve()
+    with file_path.open("rb") as f:
+        data = tomllib.load(f)
+    return data["project"]["version"]
 
 
 def load_config(project_folder: str):
