@@ -26,6 +26,10 @@ from pathlib import Path
 import argparse
 import streamlit as st
 
+# -----------------------------------------------------------------------------
+# Configuration
+# -----------------------------------------------------------------------------
+from plate_library.utils.config_reader import load_config
 
 # -----------------------------------------------------------------------------
 # Database query helpers
@@ -60,7 +64,7 @@ from plate_library.ui.stain_form_renderer import render_stain_form
 
 
 PROGRAM_NAME = "Microscopy Plate Library Maintenance UI"
-PROGRAM_VERSION = "1.10.0"
+PROGRAM_VERSION = "1.11.0"
 PROGRAM_DESCRIPTION = "Maintenance UI for a simple microscopy plate library"
 
 # Default location for the local Datasette instance and database name
@@ -97,6 +101,8 @@ def main() -> None:
     st.set_page_config(page_title=title, layout="wide")
     st.title(title)
     st.caption(PROGRAM_DESCRIPTION)
+
+    load_config(PROJECT_FOLDER)
 
     args = parse_args()
 

@@ -1,0 +1,9 @@
+{
+    "location" : {
+        "default_latitude": 51.75,
+        "default_longitude": -1.25,
+        "map_zoom": 11,
+        "map_style": null,
+        "attribution": null
+    }
+}
