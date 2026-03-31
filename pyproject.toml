@@ -22,6 +22,8 @@ dependencies = [
     "aiofiles==25.1.0",
     "tabulate==0.10.0",
     "pyproj==3.7.2",
+    "mgrs==1.5.4",
+    "pytest==3.7.2",
 ]
 
 [tool.setuptools]
