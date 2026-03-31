@@ -5,12 +5,13 @@ import sqlite3
 import streamlit as st
 from typing import Any
 from pathlib import Path
-from plate_library.utils.data_conversion_helpers import make_nullable_options, form_key_base, parse_db_date, option_index, selected_fk
+from plate_library.utils.data_conversion_helpers import form_key_base
 
 # -----------------------------------------------------------------------------
 # Entity specific imports
 # -----------------------------------------------------------------------------
 from plate_library.sql.location_sql import delete_location, insert_location, update_location
+from plate_library.utils.coordinate_transformer import latitude_longitude_to_os_gridref
 
 # -----------------------------------------------------------------------------
 # Datasette links
@@ -19,6 +20,68 @@ def datasette_location_url(base_url: str, db_file: Path, location_id: int) -> st
     """Build the Datasette URL for a LOCATION record."""
     db_name = db_file.stem
     return f"{base_url.rstrip('/')}/{db_name}/LOCATION/{location_id}"
+
+
+# -----------------------------------------------------------------------------
+# Helpers
+# -----------------------------------------------------------------------------
+def _parse_optional_float(value: str, field_name: str, errors: list[str]) -> float | None:
+    """
+    Parse a text field into a float or None.
+    Append a validation message to errors if parsing fails.
+    """
+    if not value.strip():
+        return None
+
+    try:
+        return float(value.strip())
+    except ValueError:
+        errors.append(f"{field_name} must be a valid number.")
+        return None
+
+
+def _calculate_gridref_into_session(
+    latitude_key: str,
+    longitude_key: str,
+    gridref_key: str,
+    message_key: str,
+) -> None:
+    """
+    Read latitude/longitude from session state, calculate an OS grid reference,
+    and write it back into the grid reference field in session state.
+    """
+    errors: list[str] = []
+
+    latitude_text = st.session_state.get(latitude_key, "")
+    longitude_text = st.session_state.get(longitude_key, "")
+
+    latitude = _parse_optional_float(latitude_text, "Latitude", errors)
+    longitude = _parse_optional_float(longitude_text, "Longitude", errors)
+
+    if latitude_text.strip() == "":
+        errors.append("Latitude is required to calculate the grid reference.")
+    if longitude_text.strip() == "":
+        errors.append("Longitude is required to calculate the grid reference.")
+
+    if latitude is not None and not -90 <= latitude <= 90:
+        errors.append("Latitude must be between -90 and 90.")
+
+    if longitude is not None and not -180 <= longitude <= 180:
+        errors.append("Longitude must be between -180 and 180.")
+
+    if errors:
+        st.session_state[message_key] = ("error", errors)
+        return
+
+    try:
+        st.session_state[gridref_key] = latitude_longitude_to_os_gridref(
+            latitude=latitude,
+            longitude=longitude,
+            digits=8,
+        )
+        st.session_state[message_key] = ("success", ["Grid reference calculated."])
+    except ValueError as exc:
+        st.session_state[message_key] = ("error", [f"Could not calculate grid reference: {exc}"])
 
 
 # -----------------------------------------------------------------------------
@@ -36,30 +99,76 @@ def render_location_form(
     location_id = int(location["Id"]) if location.get("Id") is not None else None
     key_base = form_key_base("location", mode, location_id)
 
-    # Streamlit text_input is used for latitude and longitude so that empty
-    # values remain genuinely null in SQLite rather than being forced to 0.0.
-    with st.form(f"{mode}_location_form_{location_id if location_id is not None else 'new'}", clear_on_submit=(mode == "add")):
-        name = st.text_input("Name *", value=location.get("Name") or "", key=f"{key_base}_name")
-        grid_reference = st.text_input(
-            "Grid Reference",
-            value=location.get("Grid_Reference") or "",
-            key=f"{key_base}_grid_reference",
+    form_key = f"{mode}_location_form_{location_id if location_id is not None else 'new'}"
+
+    # Seed session state so the calculated grid ref can be written back into the field.
+    name_key = f"{key_base}_name"
+    latitude_key = f"{key_base}_latitude"
+    longitude_key = f"{key_base}_longitude"
+    gridref_key = f"{key_base}_grid_reference"
+    message_key = f"{key_base}_message"
+
+    if name_key not in st.session_state:
+        st.session_state[name_key] = location.get("Name") or ""
+
+    if latitude_key not in st.session_state:
+        st.session_state[latitude_key] = (
+            "" if location.get("Latitude") is None else str(location.get("Latitude"))
         )
+
+    if longitude_key not in st.session_state:
+        st.session_state[longitude_key] = (
+            "" if location.get("Longitude") is None else str(location.get("Longitude"))
+        )
+
+    if gridref_key not in st.session_state:
+        st.session_state[gridref_key] = location.get("Grid_Reference") or ""
+
+    with st.form(form_key, clear_on_submit=(mode == "add")):
+        name = st.text_input(
+            "Name *",
+            key=name_key,
+        )
+
+        if message_key in st.session_state:
+            message_type, messages = st.session_state[message_key]
+
+            if message_type == "success":
+                for message in messages:
+                    st.success(message)
+            elif message_type == "error":
+                for message in messages:
+                    st.error(message)
+
+            del st.session_state[message_key]
 
         col1, col2 = st.columns(2)
         with col1:
             latitude_text = st.text_input(
                 "Latitude",
-                value="" if location.get("Latitude") is None else str(location.get("Latitude")),
+                key=latitude_key,
                 help="Leave blank if the location does not yet have a coordinate.",
-                key=f"{key_base}_latitude",
             )
         with col2:
             longitude_text = st.text_input(
                 "Longitude",
-                value="" if location.get("Longitude") is None else str(location.get("Longitude")),
+                key=longitude_key,
                 help="Leave blank if the location does not yet have a coordinate.",
-                key=f"{key_base}_longitude",
+            )
+
+        grid_col, button_col = st.columns([4, 1])
+        with grid_col:
+            grid_reference = st.text_input(
+                "Grid Reference",
+                key=gridref_key,
+            )
+
+        with button_col:
+            st.markdown("<div style='height: 1.8em'></div>", unsafe_allow_html=True)
+            calc_clicked = st.form_submit_button(
+                "From Grid Reference",
+                on_click=_calculate_gridref_into_session,
+                args=(latitude_key, longitude_key, gridref_key, message_key),
             )
 
         submitted = st.form_submit_button(
@@ -67,6 +176,9 @@ def render_location_form(
             type="primary",
         )
 
+    # -------------------------------------------------------------------------
+    # Edit-only actions
+    # -------------------------------------------------------------------------
     if mode == "edit" and location.get("Id") is not None:
         location_id = int(location["Id"])
         st.markdown(
@@ -95,26 +207,15 @@ def render_location_form(
     if not submitted:
         return
 
+    # -------------------------------------------------------------------------
+    # Validation for save
+    # -------------------------------------------------------------------------
     errors: list[str] = []
     if not name.strip():
         errors.append("Name is required.")
 
-    # Parse numeric inputs carefully so that users can leave them blank while
-    # still getting a clear validation message for malformed values.
-    latitude: float | None = None
-    longitude: float | None = None
-
-    if latitude_text.strip():
-        try:
-            latitude = float(latitude_text.strip())
-        except ValueError:
-            errors.append("Latitude must be a valid number.")
-
-    if longitude_text.strip():
-        try:
-            longitude = float(longitude_text.strip())
-        except ValueError:
-            errors.append("Longitude must be a valid number.")
+    latitude = _parse_optional_float(latitude_text, "Latitude", errors)
+    longitude = _parse_optional_float(longitude_text, "Longitude", errors)
 
     if latitude is not None and not -90 <= latitude <= 90:
         errors.append("Latitude must be between -90 and 90.")
