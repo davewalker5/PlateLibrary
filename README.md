@@ -143,6 +143,8 @@ This form of the export command reads the export query from the *sql/export.sql*
 
 ### Import
 
+> [!WARNING] The import script was written as a one-off utility for a specific context is retained for reference only. It does not necessarily match the current database schema for the plate library.
+
 The import script is intended as a one-off utility to bootstrap the database from an existing spreadsheet (XLSX). It is not a general-purpose importer and makes a number of assumptions about:
 
 - Date formats
