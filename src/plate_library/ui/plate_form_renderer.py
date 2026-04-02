@@ -126,6 +126,10 @@ def render_plate_form(
         option for option in stain_options if option["Id"] in selected_stain_ids
     ]
 
+    stains_key = f"{key_base}_stains"
+    if stains_key not in st.session_state:
+        st.session_state[stains_key] = default_stain_options
+
     if mode == "add":
         objective_form_options = make_nullable_options(
             objective_options,
@@ -240,9 +244,8 @@ def render_plate_form(
         stains = st.multiselect(
             "Stain",
             options=stain_options,
-            default=default_stain_options,
             format_func=lambda x: x["Label"],
-            key=f"{key_base}_stains",
+            key=stains_key,
         )
 
         location = st.selectbox(
