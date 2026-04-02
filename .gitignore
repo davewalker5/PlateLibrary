@@ -142,4 +142,4 @@ cython_debug/
 .idea/
 
 plate_library.db
-leitz_plates.csv
+data/*.csv
