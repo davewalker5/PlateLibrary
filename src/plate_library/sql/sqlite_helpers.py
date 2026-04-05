@@ -140,6 +140,7 @@ def load_sql_queries(project_folder: str):
     """Load the SQL queries"""
     for key in QUERIES.keys():
         file_name = key + ".sql"
-        file_path = (Path(project_folder) / "sql" / QUERIES[key]["section"] / file_name).resolve()
+        query_folder = Path(__file__).parent.parent / "queries"
+        file_path = (query_folder / QUERIES[key]["section"] / file_name).resolve()
         with open(file_path, "r") as f:
             QUERIES[key]["sql"] = f.read()

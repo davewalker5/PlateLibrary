@@ -18,8 +18,6 @@ A typical workflow with the tool looks like this:
 3.	Export the data to CSV
 4.	Use the exported data in analysis / reports
 
-An import script is also provided to import data from a spreadsheet.
-
 ## Database Schema
 
 ![Plate Library Database Diagram](https://github.com/davewalker5/PlateLibrary/blob/main/diagrams/database-schema.png)

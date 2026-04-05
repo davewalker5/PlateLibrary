@@ -1,0 +1,10 @@
+services:
+  platelibrary:
+    container_name: platelibrary
+    image: davewalker5/platelibrary:latest
+    platform: linux/amd64
+    restart: always
+    ports:
+      - "8090:8501"
+    volumes:
+      - /path/to/plate/library/database/folder:/var/opt/platelibrary/
