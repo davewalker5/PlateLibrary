@@ -13,4 +13,6 @@ export PROJECT_ROOT=$( cd "$( dirname "$0" )/.." && pwd )
 
 export PYTHONPATH="$PROJECT_ROOT/src"
 
-streamlit run "$PROJECT_ROOT/src/streamlit_app.py" -- --db "$PROJECT_ROOT/data/plate_library.db"
+streamlit run "$PROJECT_ROOT/src/streamlit_app.py" -- \
+    --db "$PROJECT_ROOT/data/plate_library.db" \
+    --config "$PROJECT_ROOT/config.json"

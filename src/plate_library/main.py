@@ -64,10 +64,11 @@ from plate_library.ui.stain_form_renderer import render_stain_form
 
 
 # Root folder of the project
+PACKAGE_NAME = "plate-library"
 PROJECT_FOLDER = Path(__file__).parent.parent.parent
 
 PROGRAM_NAME = "Microscopy Plate Library Maintenance UI"
-PROGRAM_VERSION = get_application_version(PROJECT_FOLDER)
+PROGRAM_VERSION = get_application_version(PACKAGE_NAME, PROJECT_FOLDER)
 PROGRAM_DESCRIPTION = "Maintenance UI for a simple microscopy plate library"
 
 # Default location for the local Datasette instance and database name
@@ -78,6 +79,19 @@ DB_NAME = "plate_library.db"
 # -----------------------------------------------------------------------------
 # Main UI
 # -----------------------------------------------------------------------------
+
+def configuration_file_path():
+    """Return the default location for the config file
+    
+    If the microscopy plate library environment variable is set, assume the file is in that
+    folder. Otherwise, assume it's in the root folder of the project.
+    """
+    config_folder = os.getenv("MICROSCOPY_PLATE_LIBRARY")
+    if not config_folder:
+        config_folder = PROJECT_FOLDER
+
+    return (Path(config_folder) / "config.json").absolute()
+
 
 @st.cache_resource
 def parse_args() -> argparse.Namespace:
@@ -90,9 +104,13 @@ def parse_args() -> argparse.Namespace:
         description=PROGRAM_DESCRIPTION
     )
 
+    # Determing the default database and config file paths
     default_db_path = database_path(PROJECT_FOLDER, DB_NAME)
-    parser.add_argument("--db", default=default_db_path)
+    default_config_path = configuration_file_path()
 
+    # Parse the command line arguments
+    parser.add_argument("--db", default=default_db_path)
+    parser.add_argument("-c", "--config", default=default_config_path)
     return parser.parse_args()
 
 
@@ -103,13 +121,14 @@ def main() -> None:
     st.title(title)
     st.caption(PROGRAM_DESCRIPTION)
 
-    load_config(PROJECT_FOLDER)
-
     args = parse_args()
 
+    load_config(args.config)
+
     with st.sidebar:
-        st.header("Database")
+        st.header("Configuration")
         db_path = st.text_input("SQLite DB path", value=args.db)
+        _ = st.text_input("Configuration File", value=args.config)
 
         st.header("Datasette")
         datasette_url = st.text_input("Datasette base URL", value=DEFAULT_DATASETTE_URL)

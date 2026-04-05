@@ -15,9 +15,10 @@ import csv
 import sqlite3
 import sys
 from pathlib import Path
+from typing import Any
 
 PROGRAM_NAME = "Microscopy Plate Library Exporter"
-PROGRAM_VERSION = "1.0.0"
+PROGRAM_VERSION = "1.1.0"
 PROGRAM_DESCRIPTION = "Export the microscopy plate library as a CSV file"
 
 
@@ -29,17 +30,20 @@ def parse_args() -> argparse.Namespace:
     the repository root, while this script itself is expected to live in a
     scripts/ directory one level below that root.
     """
-    repo_root = Path(__file__).resolve().parent.parent
-    default_sql = repo_root / "sql" / "export.sql"
-
     parser = argparse.ArgumentParser(
         prog=f"{PROGRAM_NAME} v{PROGRAM_VERSION}",
         description=PROGRAM_DESCRIPTION
     )
 
-    parser.add_argument("--db", required=True, help="Path to the input SQLite database file.")
-    parser.add_argument("--csv", required=True, help="Path to the output CSV file.")
-    parser.add_argument("--sql", default=str(default_sql), help=f"Path to the SQL file to execute (default: {default_sql}).")
+    # Construct full SQL file paths for the export SQL queries
+    repo_root = Path(__file__).resolve().parent.parent
+    plates_sql = repo_root / "sql" / "export-plates.sql"
+    investigations_sql = repo_root / "sql" / "export-investigations.sql"
+
+    parser.add_argument("-db", "--db", required=True, help="Path to the input SQLite database file.")
+    parser.add_argument("-csv", "--csv", required=True, help="Path to the output CSV file.")
+    parser.add_argument("-ps", "--plate-sql", default=str(plates_sql), help=f"Path to the SQL file to execute (default: {plates_sql}).")
+    parser.add_argument("-is", "--investigation-sql", default=str(investigations_sql), help=f"Path to the SQL file to execute (default: {plates_sql}).")
     return parser.parse_args()
 
 
@@ -55,7 +59,7 @@ def read_sql(sql_path: Path) -> str:
     return sql_path.read_text(encoding="utf-8")
 
 
-def export_to_csv(db_path: Path, sql: str, csv_path: Path) -> int:
+def export_to_csv(db_path: Path, sql_file: str, csv_path: str) -> int:
     """
     Execute the supplied SQL against the SQLite database and write the results
     to the requested CSV file.
@@ -67,7 +71,11 @@ def export_to_csv(db_path: Path, sql: str, csv_path: Path) -> int:
 
     # Create the output directory automatically so the caller does not need
     # to prepare it in advance.
+    csv_path = Path(csv_path)
     csv_path.parent.mkdir(parents=True, exist_ok=True)
+
+    # Read the query file
+    sql = read_sql(Path(sql_file))
 
     # Fetch all rows first so we can read cursor.description before leaving
     # the database context manager.
@@ -87,6 +95,12 @@ def export_to_csv(db_path: Path, sql: str, csv_path: Path) -> int:
     return len(rows)
 
 
+def add_suffix(path_str: Any, suffix: str) -> str:
+    """Add a suffic to the name part of a file path"""
+    file_path = Path(path_str)
+    return str(file_path.with_name(f"{file_path.stem}-{suffix}{file_path.suffix}"))
+
+
 def main() -> int:
     """
     Script entry point.
@@ -95,19 +109,28 @@ def main() -> int:
     """
     args = parse_args()
 
+    # Resolve full file paths for the DB and output CSV files
     db_path = Path(args.db).expanduser().resolve()
     csv_path = Path(args.csv).expanduser().resolve()
-    sql_path = Path(args.sql).expanduser().resolve()
+
+    # Construct full CSV file paths for the exported plates and investigations
+    plates_csv = add_suffix(csv_path, "plates")
+    investigations_csv = add_suffix(csv_path, "investigations")
 
     try:
-        sql = read_sql(sql_path)
-        row_count = export_to_csv(db_path, sql, csv_path)
+        # Export the plates
+        row_count = export_to_csv(db_path, args.plate_sql, plates_csv)
+        print(f"Exported {row_count} plate(s) to {plates_csv}")
+
+        # Export the investigations
+        row_count = export_to_csv(db_path, args.investigation_sql, investigations_csv)
+        print(f"Exported {row_count} investigation(s) to {investigations_csv}")
+
     except Exception as exc:
         # Keep error handling straightforward for command-line use.
         print(f"Error: {exc}", file=sys.stderr)
         return 1
 
-    print(f"Exported {row_count} row(s) to {csv_path}")
     return 0
 
 
