@@ -82,6 +82,13 @@ python -m venv venv
 source ./venv/bin/activate
 ```
 
+Then, install the project dependencies:
+
+```bash
+pip install --upgrade pip
+pip install -e .
+```
+
 This assumes a Mac or Linux-based setup and should be modified if running on Windows.
 
 ### Streamlit (Data Entry and Maintenance)
